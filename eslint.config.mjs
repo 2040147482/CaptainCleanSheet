@@ -10,6 +10,20 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  {
+    // Prevent ESLint (flat config) from linting compiled/bundled files
+    // that cause massive false positives in dev overlay
+    ignores: [
+      "**/node_modules/**",
+      "**/.pnpm/**",
+      "**/.next/**",
+      "**/out/**",
+      "**/build/**",
+      "**/dist/**",
+      "**/.turbo/**",
+      "next-env.d.ts",
+    ],
+  },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];
 

@@ -1,0 +1,155 @@
+{
+  "nav": {
+    "features": "Features",
+    "demo": "Demo",
+    "pricing": "Pricing",
+    "profile": "Profile",
+    "install": "Install Extension"
+  },
+  "navigation": {
+    "features": "Features",
+    "demo": "Demo",
+    "pricing": "Pricing",
+    "profile": "Profile",
+    "language": "Language",
+    "extensions": "Extensions",
+    "account": "Account",
+    "resetPassword": "Reset Password",
+    "logout": "Logout",
+    "install": "Install Extension"
+  },
+  "profile": {
+    "sidebar": {
+      "overview": "Overview",
+      "reports": "My Reports",
+      "subscription": "Subscription",
+      "preferences": "Preferences",
+      "account": "Account Management"
+    },
+    "card": {
+      "plan": "Current Plan",
+      "daysRemaining": "{days} days remaining",
+      "actions": { "upgrade": "Upgrade", "export": "Export Reports", "edit": "Edit Profile" }
+    },
+    "overview": {
+      "usageTitle": "Monthly Usage",
+      "usageDesc": "Cleanups and reports this month",
+      "tasksTitle": "Recent Tasks",
+      "tasksDesc": "A glance at recent tasks",
+      "quickTitle": "Quick Actions",
+      "quick": { "generateReport": "Generate Report", "cleanSheet": "Clean Sheet", "export": "Export" }
+    },
+    "reports": { "title": "My Reports", "desc": "History of generated reports", "itemTitle": "Report #{index}" },
+    "subscription": { "title": "Subscription", "desc": "Current plan and renewal info", "current": "Current Plan", "renewal": "Renewal Date", "upgrade": "Upgrade Plan", "history": "Billing History (collapsible)" },
+    "preferences": { "title": "Preferences", "desc": "Language, theme, notifications, storage", "language": "Language", "theme": "Theme", "notifications": "Notifications", "storage": "Storage", "light": "Light", "dark": "Dark" },
+    "logout": { "title": "Logout", "desc": "Sign out of your account", "action": "Sign out" },
+    "account": {
+      "title": "Account Management",
+      "desc": "Manage username, reset password, cancel account, and sign out",
+      "username": "Username",
+      "resetPassword": "Reset Password",
+      "cancelAccount": "Cancel Account",
+      "cancelHint": "To cancel your account, please contact support or an administrator.",
+      "logout": "Sign out"
+    },
+    "common": { "view": "View", "export": "Export" }
+  },
+  "hero": {
+    "title": { "line1": "Make your spreadsheets", "highlight": "brand new" },
+    "subtitle": "AI detection · One-click cleanup · Export CSV / Excel",
+    "install": "🚀 Install",
+    "demo": "🎬 Watch Demo",
+    "platforms": "Supported platforms:",
+    "cleanComplete": "✨ Cleanup complete"
+  },
+  "features": {
+    "header": "Four Core Features",
+    "subheader": "Make data work simple and efficient"
+  },
+  "feature": {
+    "intelligentDetection": { "title": "Intelligent Detection", "desc": "Auto-detect messy table structures" },
+    "deepClean": { "title": "Deep Cleanup", "desc": "One-click remove noisy data" },
+    "aiInsight": { "title": "AI Insights", "desc": "Generate smart reports" },
+    "exportReport": { "title": "Export Reports", "desc": "Export in multiple formats" }
+  },
+  "cta": {
+    "title": { "line1": "Ready to make your data", "highlight": "brand new?" },
+    "subtitle": { "line1": "Join thousands and experience AI-powered cleaning.", "line2": "Start your efficient data journey in seconds." },
+    "button": "Install CaptainCleanSheet",
+    "installFree": "Free install",
+    "noSignup": "No signup needed",
+    "readyToUse": "Ready to use"
+  },
+  "platform": {
+    "edge": "Edge",
+    "chrome": "Chrome",
+    "firefox": "Firefox",
+    "safari": "Mac Safari",
+    "tm": "Tampermonkey",
+    "crx": "CRX package",
+    "wechat": "WeChat Mini Program"
+  },
+  "footer": {
+    "brand": "CaptainCleanSheet © 2025",
+    "links": {
+      "privacy": "Privacy Policy",
+      "terms": "Terms of Service",
+      "contact": "Contact",
+      "github": "GitHub",
+      "x": "X",
+      "facebook": "Facebook"
+    }
+  },
+  "auth": {
+    "common": {
+      "email": "Email",
+      "password": "Password",
+      "emailPlaceholder": "m@example.com"
+    },
+    "login": {
+      "title": "Login",
+      "description": "Enter your email below to login to your account",
+      "forgot": "Forgot your password?",
+      "submit": "Login",
+      "loading": "Logging in...",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "signUp": {
+      "title": "Sign up",
+      "description": "Create a new account",
+      "repeatPassword": "Repeat Password",
+      "mismatch": "Passwords do not match",
+      "submit": "Sign up",
+      "loading": "Creating an account...",
+      "alreadyHave": "Already have an account?",
+      "login": "Login"
+    },
+    "forgot": {
+      "title": "Reset Your Password",
+      "description": "Type in your email and we'll send you a link to reset your password",
+      "titleSuccess": "Check Your Email",
+      "descSuccess": "Password reset instructions sent",
+      "hintSuccess": "If you registered using your email and password, you will receive a password reset email.",
+      "submit": "Send reset email",
+      "loading": "Sending..."
+    },
+    "update": {
+      "title": "Reset Your Password",
+      "description": "Please enter your new password below.",
+      "newPassword": "New password",
+      "submit": "Save new password",
+      "loading": "Saving..."
+    },
+    "error": {
+      "title": "Sorry, something went wrong.",
+      "codeError": "Code error",
+      "unspecified": "An unspecified error occurred."
+    },
+    "signUpSuccess": {
+      "title": "Thank you for signing up!",
+      "description": "Check your email to confirm",
+      "hint": "You've successfully signed up. Please check your email to confirm your account before signing in."
+    }
+  }
+}
