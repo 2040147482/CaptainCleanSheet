@@ -151,5 +151,43 @@
       "description": "Check your email to confirm",
       "hint": "You've successfully signed up. Please check your email to confirm your account before signing in."
     }
+  },
+  "pricing": {
+    "headerTitle": "Choose the plan that fits you",
+    "headerSubtitle": "Start free and upgrade to more powerful features anytime",
+    "popular": "Most Popular",
+    "status": { "preview": "🟣 In Preview" },
+    "plans": {
+      "free": { "name": "🧩 Free", "desc": "Individual users", "period": "/ month", "cta": "Install Extension" },
+      "pro": { "name": "⚡️ Pro", "desc": "Advanced analytics users", "period": "/ month", "cta": "Upgrade to Pro" },
+      "team": { "name": "🧠 Team / Enterprise", "desc": "Teams / enterprise customers", "period": "/ month / user", "cta": "Request Trial" }
+    },
+    "features": {
+      "webTableDetection": "Intelligent web table detection",
+      "basicCleanRules": "Basic cleaning rules (empty / duplicates / format)",
+      "exportLimited": "Export to CSV / Excel (≤ 1,000 rows)",
+      "diagnosisSummary": "Data diagnosis report summary",
+      "fullSmartClean": "Full smart cleaning",
+      "aiDiagnosis": "AI data diagnosis + auto-fix suggestions",
+      "advancedExport": "Advanced export: Excel / JSON / SQL / Markdown",
+      "unlimitedRows": "Unlimited rows processing",
+      "aiInsight": "AI insights (trend / anomaly detection / smart summary)",
+      "rehabReport": "Auto-generate 'Data Rehabilitation Report'",
+      "prioritySupport": "Priority support (email & community)",
+      "includesPro": "Includes all Pro features",
+      "teamCollab": "Team collaboration and multi-user sync",
+      "accessControl": "Data permissions and access control",
+      "sharedSpace": "Shared data space and report center",
+      "apiIntegration": "API integration (Webhook / REST)",
+      "slaSupport": "Dedicated technical support & SLA",
+      "modelTuning": "Organization-level AI model tuning"
+    },
+    "extras": {
+      "trialNote": "All plans include a 14-day free trial. Cancel anytime",
+      "noCreditCard": "No credit card required",
+      "instantActivation": "Instant activation",
+      "support247": "24/7 support"
+    },
+    "footer": { "privacy": "Privacy Policy", "terms": "Terms of Service", "contact": "Contact Us" }
   }
 }
