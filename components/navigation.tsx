@@ -69,9 +69,11 @@ export function Navigation() {
             <motion.a href="#demo" className="text-gray-700 hover:text-blue-600 font-medium transition-colors" whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400, damping: 10 }}>
               {t("demo")}
             </motion.a>
-            <motion.a href="#pricing" className="text-gray-700 hover:text-blue-600 font-medium transition-colors" whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400, damping: 10 }}>
-              {t("pricing")}
-            </motion.a>
+            <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400, damping: 10 }}>
+              <Link href={`/${locale}/pricing`} className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
+                {t("pricing")}
+              </Link>
+            </motion.div>
           </div>
 
           {/* Action Buttons */}
