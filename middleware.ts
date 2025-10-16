@@ -19,8 +19,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    // Exclude API and static assets from locale middleware
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     "/", // root redirects to default locale
-    "/(zh|en)/:path*",
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

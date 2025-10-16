@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,6 +13,10 @@ type TabKey = "overview" | "reports" | "subscription" | "preferences" | "account
 
 export default function ProfilePage() {
   const [active, setActive] = useState<TabKey>("overview");
+  const [patList, setPatList] = useState<Array<{ id: string; status: string; created_at?: string; last_used_at?: string; masked_key: string }>>([]);
+  const [loadingPat, setLoadingPat] = useState(false);
+  const [creatingPat, setCreatingPat] = useState(false);
+  const [newPat, setNewPat] = useState<string | null>(null);
   const locale = useLocale();
   const t = useTranslations("profile");
 
@@ -37,6 +41,23 @@ export default function ProfilePage() {
       <span className="text-sm font-medium">{label}</span>
     </button>
   );
+
+  useEffect(() => {
+    const loadPATs = async () => {
+      if (active !== "account") return;
+      setLoadingPat(true);
+      try {
+        const res = await fetch("/api/pat/list");
+        const json = await res.json();
+        if (json.items) setPatList(json.items);
+      } catch (e) {
+        // noop
+      } finally {
+        setLoadingPat(false);
+      }
+    };
+    loadPATs();
+  }, [active]);
 
   return (
     <main>
@@ -80,6 +101,7 @@ export default function ProfilePage() {
                     <Button
                       variant="outline"
                       onClick={async () => {
+                        try { await fetch("/api/auth/sync-token", { method: "DELETE" }); } catch (_) {}
                         const supabase = createClient();
                         await supabase.auth.signOut();
                         window.location.href = `/${locale}`;
@@ -259,6 +281,80 @@ export default function ProfilePage() {
                           {t("account.resetPassword")}
                         </Button>
                       </div>
+                      {/* PAT Management */}
+                      <div className="rounded-lg border bg-white/60 p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2"><KeyRound className="w-4 h-4" /><span className="text-sm font-medium">{t("pat.title")}</span></div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={creatingPat}
+                              onClick={async () => {
+                                setCreatingPat(true);
+                                setNewPat(null);
+                                try {
+                                  const res = await fetch("/api/pat/create", { method: "POST" });
+                                  const json = await res.json();
+                                  if (json.key) {
+                                    setNewPat(json.key);
+                                    // refresh list
+                                    const r = await fetch("/api/pat/list");
+                                    const j = await r.json();
+                                    if (j.items) setPatList(j.items);
+                                  }
+                                } finally {
+                                  setCreatingPat(false);
+                                }
+                              }}
+                            >
+                              {creatingPat ? t("pat.creating") : t("pat.create")}
+                            </Button>
+                          </div>
+                        </div>
+                        {newPat && (
+                          <div className="mt-3 p-3 rounded-lg border bg-white">
+                            <div className="text-sm text-gray-700 mb-2">{t("pat.copyHint")}</div>
+                            <div className="flex items-center gap-2">
+                              <input className="flex-1 text-sm border rounded px-2 py-1" readOnly value={newPat} />
+                              <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(newPat!)}>{t("pat.copy")}</Button>
+                            </div>
+                          </div>
+                        )}
+                        <div className="mt-3">
+                          <div className="text-sm font-medium mb-2">{t("pat.listTitle")}</div>
+                          {loadingPat ? (
+                            <div className="text-sm text-gray-600">{t("pat.loading")}</div>
+                          ) : (
+                            <div className="space-y-2">
+                              {patList.length === 0 && (
+                                <div className="text-sm text-gray-600">{t("pat.empty")}</div>
+                              )}
+                              {patList.map((k) => (
+                                <div key={k.id} className="flex items-center justify-between p-2 rounded border bg-white">
+                                  <div>
+                                    <div className="text-sm">{k.masked_key}</div>
+                                    <div className="text-xs text-gray-500">{t("pat.status")}: {k.status} • {t("pat.createdAt")}: {k.created_at ? new Date(k.created_at).toLocaleString() : "-"} {k.last_used_at ? `• ${t("pat.lastUsedAt")}: ${new Date(k.last_used_at).toLocaleString()}` : ""}</div>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-red-600 border-red-300 hover:bg-red-50"
+                                    onClick={async () => {
+                                      await fetch("/api/pat/revoke", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key_id: k.id }) });
+                                      const r = await fetch("/api/pat/list");
+                                      const j = await r.json();
+                                      if (j.items) setPatList(j.items);
+                                    }}
+                                  >
+                                    {t("pat.revoke")}
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       <div className="flex items-center justify-between p-3 rounded-lg border bg-white/60">
                         <div className="flex items-center gap-2"><Trash className="w-4 h-4" /><span className="text-sm font-medium">{t("account.cancelAccount")}</span></div>
                         <Button variant="outline" size="sm" className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => alert(t("account.cancelHint"))}>
@@ -267,7 +363,7 @@ export default function ProfilePage() {
                       </div>
                       <div className="flex items-center justify-between p-3 rounded-lg border bg-white/60">
                         <div className="flex items-center gap-2"><LogOut className="w-4 h-4" /><span className="text-sm font-medium">{t("account.logout")}</span></div>
-                        <Button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white" size="sm" onClick={async () => { const supabase = createClient(); await supabase.auth.signOut(); window.location.href = `/${locale}`; }}>
+                        <Button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white" size="sm" onClick={async () => { try { await fetch("/api/auth/sync-token", { method: "DELETE" }); } catch (_) {} const supabase = createClient(); await supabase.auth.signOut(); window.location.href = `/${locale}`; }}>
                           {t("account.logout")}
                         </Button>
                       </div>

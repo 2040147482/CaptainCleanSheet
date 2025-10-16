@@ -48,7 +48,7 @@ export function SignUpForm({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/${locale}/protected`,
+          emailRedirectTo: `${window.location.origin}/${locale}/profile`,
         },
       });
       if (error) throw error;

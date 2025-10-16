@@ -37,7 +37,7 @@ export function UpdatePasswordForm({
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       // Redirect to a locale-aware authenticated route. The user has an active session.
-      router.push(`/${locale}/protected`);
+      router.push(`/${locale}/profile`);
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {

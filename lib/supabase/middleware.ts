@@ -51,6 +51,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const localeMatch = pathname.match(/^\/(zh|en)(?:\/|$)/);
   const locale = localeMatch?.[1] ?? null;
+  const isApiPath = pathname.startsWith("/api");
 
   if (!user) {
     const isRoot = pathname === "/";
@@ -58,8 +59,8 @@ export async function updateSession(request: NextRequest) {
     const isAuthPath = pathname.startsWith("/auth") || (!!locale && pathname.startsWith(`/${locale}/auth`));
     const isLoginPath = pathname.startsWith("/login") || (!!locale && pathname.startsWith(`/${locale}/login`));
 
-    // Only enforce auth redirect outside of allowed public paths
-    if (!isRoot && !isLocaleRoot && !isAuthPath && !isLoginPath) {
+    // Only enforce auth redirect outside of allowed public paths and never for API routes
+    if (!isRoot && !isLocaleRoot && !isAuthPath && !isLoginPath && !isApiPath) {
       const url = request.nextUrl.clone();
       url.pathname = locale ? `/${locale}/auth/login` : "/auth/login";
       return NextResponse.redirect(url);

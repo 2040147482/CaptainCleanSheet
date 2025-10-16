@@ -52,6 +52,20 @@
       "cancelHint": "To cancel your account, please contact support or an administrator.",
       "logout": "Sign out"
     },
+    "pat": {
+      "title": "PAT Management",
+      "create": "Create PAT",
+      "creating": "Creating...",
+      "copy": "Copy",
+      "copyHint": "Copy and save now (plaintext shown only at creation).",
+      "listTitle": "My Tokens",
+      "loading": "Loading...",
+      "empty": "No tokens. Click above to create.",
+      "revoke": "Revoke",
+      "status": "Status",
+      "createdAt": "Created",
+      "lastUsedAt": "Last Used"
+    },
     "common": { "view": "View", "export": "Export" }
   },
   "hero": {

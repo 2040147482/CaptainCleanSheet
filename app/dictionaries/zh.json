@@ -52,6 +52,20 @@
       "cancelHint": "如需注销，请联系支持或管理员处理。",
       "logout": "退出登录"
     },
+    "pat": {
+      "title": "PAT 管理",
+      "create": "生成 PAT",
+      "creating": "正在生成...",
+      "copy": "复制",
+      "copyHint": "请立即复制并妥善保存（仅在创建时显示明文）。",
+      "listTitle": "我的令牌",
+      "loading": "正在加载...",
+      "empty": "暂无令牌，点击上方按钮生成",
+      "revoke": "吊销",
+      "status": "状态",
+      "createdAt": "创建时间",
+      "lastUsedAt": "最近使用"
+    },
     "common": { "view": "查看", "export": "导出" }
   },
   "hero": {
