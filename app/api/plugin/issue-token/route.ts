@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { getEntitlementsForUser } from "@/lib/entitlements";
@@ -10,7 +10,7 @@ const PLUGIN_TOKEN_TTL_MINUTES = Number(
   process.env.PLUGIN_TOKEN_TTL_MINUTES || "15",
 );
 
-async function getUserFromSession(req: NextRequest) {
+async function getUserFromSession() {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -19,8 +19,8 @@ async function getUserFromSession(req: NextRequest) {
   return { userId: user.id };
 }
 
-export async function POST(req: NextRequest) {
-  const user = await getUserFromSession(req);
+export async function POST() {
+  const user = await getUserFromSession();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const entitlements = await getEntitlementsForUser(user.userId);

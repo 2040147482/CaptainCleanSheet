@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const { payload } = await jwtVerify(token, PLUGIN_JWT_SECRET, { audience: "plugin" });
     const userId = String(payload.user_id || "");
     const orgId = payload.org_id ? String(payload.org_id) : undefined;
-    const entitlements = (payload as any).entitlements as { limits?: Record<string, number> } | undefined;
+    const entitlements = (payload as unknown as { entitlements?: { limits?: Record<string, number> } }).entitlements;
     const units = Number(body.units ?? 1);
 
     // Enforce daily quota if available in entitlements

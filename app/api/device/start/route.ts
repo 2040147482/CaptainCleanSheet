@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   const code = randomBytes(24).toString("hex");
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
   const supabase = await createSupabaseServerClient();

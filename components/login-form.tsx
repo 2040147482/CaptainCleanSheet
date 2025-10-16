@@ -45,7 +45,7 @@ export function LoginForm({
       // After login success, sync plugin token cookie for extension detection
       try {
         await fetch("/api/auth/sync-token", { method: "POST", credentials: "same-origin" });
-      } catch (_) {
+      } catch {
         // Non-blocking: if cookie sync fails, still continue
       }
       // Update this route to redirect to an authenticated route. The user already has an active session.

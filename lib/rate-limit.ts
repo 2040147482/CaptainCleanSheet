@@ -27,7 +27,8 @@ export async function checkDailyLimit({ userId, orgId, units, max }: DailyLimitC
     return { allowed: true, remaining: max };
   }
 
-  const used = data.reduce((sum, row: any) => sum + (Number(row.units) || 0), 0);
+  const rows = (data ?? []) as Array<{ units: number | null }>;
+  const used = rows.reduce((sum, row) => sum + (Number(row.units ?? 0) || 0), 0);
   const remaining = Math.max(0, max - used);
   const allowed = units <= remaining;
   return { allowed, remaining };

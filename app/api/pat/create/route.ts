@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { randomBytes } from "crypto";
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },

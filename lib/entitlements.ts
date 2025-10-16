@@ -4,6 +4,8 @@ export type Entitlements = {
   plan: string;
   features: string[];
   limits: Record<string, number>;
+  status?: string;
+  current_period_end?: string;
 };
 
 export async function getEntitlementsForUser(userId: string, orgId?: string): Promise<Entitlements> {
@@ -26,9 +28,9 @@ export async function getEntitlementsForUser(userId: string, orgId?: string): Pr
   const plan = data.plan ?? "free";
   switch (plan) {
     case "pro":
-      return { plan: "pro", features: ["basic", "pro"], limits: { dailyRequests: 1000 } };
+      return { plan: "pro", features: ["basic", "pro"], limits: { dailyRequests: 1000 }, status: data.status ?? undefined, current_period_end: data.current_period_end ?? undefined };
     case "team":
-      return { plan: "team", features: ["basic", "pro", "team"], limits: { dailyRequests: 5000 } };
+      return { plan: "team", features: ["basic", "pro", "team"], limits: { dailyRequests: 5000 }, status: data.status ?? undefined, current_period_end: data.current_period_end ?? undefined };
     default:
       return defaultEntitlements;
   }

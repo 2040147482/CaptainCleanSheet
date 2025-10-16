@@ -19,15 +19,26 @@ export default function ProfilePage() {
   const [newPat, setNewPat] = useState<string | null>(null);
   const locale = useLocale();
   const t = useTranslations("profile");
-
-  // TODO: replace with real plan from user profile once backend wired
-  const currentPlan = "Pro";
-  const isPro = currentPlan.toLowerCase() === "pro";
+  type MeResponse = {
+    authenticated: boolean;
+    user?: { id: string; email: string };
+    entitlements?: { plan: string; status?: string; current_period_end?: string; features?: string[]; limits?: Record<string, number> };
+  };
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [, setLoadingMe] = useState<boolean>(false);
 
   const emailMasked = (email: string) => {
     const [name, domain] = email.split("@");
     const masked = name.length > 2 ? name.slice(0, 2) + "***" : name[0] + "***";
     return `${masked}@${domain}`;
+  };
+
+  const initialsFromEmail = (email?: string) => {
+    if (!email) return "--";
+    const local = email.split("@")[0];
+    const first = local.charAt(0) || "-";
+    const second = local.charAt(1) || "-";
+    return (first + second).toUpperCase();
   };
 
   const sidebarItem = (key: TabKey, label: string, icon: React.ReactNode) => (
@@ -43,6 +54,21 @@ export default function ProfilePage() {
   );
 
   useEffect(() => {
+    // Load basic user profile data for Overview/Subscription cards
+    const loadMe = async () => {
+      setLoadingMe(true);
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "same-origin" });
+        const json = await res.json();
+        setMe(json as MeResponse);
+      } catch {
+        // noop
+      } finally {
+        setLoadingMe(false);
+      }
+    };
+    loadMe();
+
     const loadPATs = async () => {
       if (active !== "account") return;
       setLoadingPat(true);
@@ -50,7 +76,7 @@ export default function ProfilePage() {
         const res = await fetch("/api/pat/list");
         const json = await res.json();
         if (json.items) setPatList(json.items);
-      } catch (e) {
+      } catch {
         // noop
       } finally {
         setLoadingPat(false);
@@ -83,25 +109,30 @@ export default function ProfilePage() {
               <CardContent className="pt-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                   <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center text-lg font-semibold shadow">CS</div>
+                    <div className="h-14 w-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center text-lg font-semibold shadow">{initialsFromEmail(me?.user?.email)}</div>
                     <div>
-                      <div className="text-lg font-semibold">Captain User</div>
-                      <div className="text-sm text-gray-600">{emailMasked("captain@example.com")}</div>
+                      <div className="text-lg font-semibold">{me?.user?.email ? me.user.email.split("@")[0] : t("common.user")}</div>
+                      <div className="text-sm text-gray-600">{me?.user?.email ? emailMasked(me.user.email) : "-"}</div>
                       <div className="text-sm text-gray-600">
-                        {t("card.plan")}: Pro • {t("card.daysRemaining", { days: 12 })}
+                        {(() => {
+                          const plan = (me?.entitlements?.plan ?? "free").replace(/^\w/, (c) => c.toUpperCase());
+                          const end = me?.entitlements?.current_period_end ? new Date(me.entitlements.current_period_end) : null;
+                          const days = end ? Math.max(0, Math.ceil((end.getTime() - Date.now()) / (24 * 3600 * 1000))) : null;
+                          return `${t("card.plan")}: ${plan}` + (days !== null ? ` • ${t("card.daysRemaining", { days })}` : "");
+                        })()}
                       </div>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-3">
-                    {!isPro && (
+                    {!["pro", "team"].includes((me?.entitlements?.plan ?? "free").toLowerCase()) && (
                       <Button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">{t("card.actions.upgrade")}</Button>
                     )}
                     <Button variant="outline">{t("card.actions.export")}</Button>
                     <Button
                       variant="outline"
                       onClick={async () => {
-                        try { await fetch("/api/auth/sync-token", { method: "DELETE" }); } catch (_) {}
+                        try { await fetch("/api/auth/sync-token", { method: "DELETE" }); } catch {}
                         const supabase = createClient();
                         await supabase.auth.signOut();
                         window.location.href = `/${locale}`;
@@ -197,10 +228,10 @@ export default function ProfilePage() {
                   <CardContent>
                     <div className="flex items-center justify-between p-3 rounded-lg border bg-white/60">
                       <div>
-                        <div className="text-sm font-medium">{t("subscription.current")}: Pro</div>
-                        <div className="text-sm text-gray-600">{t("subscription.renewal")}: 2025-11-01</div>
+                        <div className="text-sm font-medium">{t("subscription.current")}: {((me?.entitlements?.plan ?? "free").replace(/^\w/, (c) => c.toUpperCase()))}</div>
+                        <div className="text-sm text-gray-600">{t("subscription.renewal")}: {me?.entitlements?.current_period_end ? new Date(me.entitlements.current_period_end).toLocaleDateString() : "-"}</div>
                       </div>
-                      {!isPro && (
+                      {!["pro", "team"].includes((me?.entitlements?.plan ?? "free").toLowerCase()) && (
                         <Button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">{t("subscription.upgrade")}</Button>
                       )}
                     </div>
@@ -273,7 +304,7 @@ export default function ProfilePage() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between p-3 rounded-lg border bg-white/60">
                         <div className="flex items-center gap-2"><User className="w-4 h-4" /><span className="text-sm font-medium">{t("account.username")}</span></div>
-                        <div className="text-sm text-gray-700">Captain User • {emailMasked("captain@example.com")}</div>
+                        <div className="text-sm text-gray-700">{me?.user?.email ? `${me.user.email.split("@")[0]} • ${emailMasked(me.user.email)}` : "-"}</div>
                       </div>
                       <div className="flex items-center justify-between p-3 rounded-lg border bg-white/60">
                         <div className="flex items-center gap-2"><KeyRound className="w-4 h-4" /><span className="text-sm font-medium">{t("account.resetPassword")}</span></div>
@@ -363,7 +394,7 @@ export default function ProfilePage() {
                       </div>
                       <div className="flex items-center justify-between p-3 rounded-lg border bg-white/60">
                         <div className="flex items-center gap-2"><LogOut className="w-4 h-4" /><span className="text-sm font-medium">{t("account.logout")}</span></div>
-                        <Button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white" size="sm" onClick={async () => { try { await fetch("/api/auth/sync-token", { method: "DELETE" }); } catch (_) {} const supabase = createClient(); await supabase.auth.signOut(); window.location.href = `/${locale}`; }}>
+                        <Button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white" size="sm" onClick={async () => { try { await fetch("/api/auth/sync-token", { method: "DELETE" }); } catch {} const supabase = createClient(); await supabase.auth.signOut(); window.location.href = `/${locale}`; }}>
                           {t("account.logout")}
                         </Button>
                       </div>

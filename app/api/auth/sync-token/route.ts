@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     if (body?.refreshToken) {
       res.cookies.set(REFRESH_COOKIE, body.refreshToken, siteCookieOptions(refreshExpires));
     }
-  } catch (_) {}
+  } catch {}
 
   return res;
 }

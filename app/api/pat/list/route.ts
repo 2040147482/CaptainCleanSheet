@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 function maskKey(key: string) {
@@ -8,7 +8,7 @@ function maskKey(key: string) {
   return `${prefix}••••••••••${suffix}`;
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -22,7 +22,15 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: "DB error" }, { status: 500 });
 
-  const items = (data || []).map((k: any) => ({
+  type APIKeyRow = {
+    id: string;
+    status: string;
+    created_at: string;
+    last_used_at: string | null;
+    plaintext_key: string | null;
+  };
+  const rows: APIKeyRow[] = (data ?? []) as APIKeyRow[];
+  const items = rows.map((k) => ({
     id: k.id,
     status: k.status,
     created_at: k.created_at,
