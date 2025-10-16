@@ -7,9 +7,36 @@ import { Badge } from "@/components/ui/badge";
 import { Check, Sparkles, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
+import { useState } from "react";
 
-export function PricingPage() {
+export function PricingPage({ lang }: { lang?: string }) {
   const t = useTranslations("pricing");
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  async function handleCheckout(planId: "pro" | "team") {
+    try {
+      setLoadingPlan(planId);
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planId, lang }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("Checkout failed:", data);
+        alert(data?.error || "创建结账会话失败");
+        return;
+      }
+      const url = data?.checkout_url;
+      if (typeof url === "string") {
+        window.location.assign(url);
+      } else {
+        alert("返回的 checkout_url 无效");
+      }
+    } finally {
+      setLoadingPlan(null);
+    }
+  }
 
   // 定价计划数据
   const plans = [
@@ -200,6 +227,17 @@ export function PricingPage() {
                               ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl hover:shadow-blue-500/25"
                               : "border-2 border-gray-300 text-gray-700 hover:border-blue-500 hover:text-blue-600 bg-transparent"
                           }`}
+                          onClick={
+                            plan.id === "pro"
+                              ? () => handleCheckout("pro")
+                              : plan.id === "team"
+                              ? () => handleCheckout("team")
+                              : undefined
+                          }
+                          disabled={
+                            (plan.id === "pro" && loadingPlan === "pro") ||
+                            (plan.id === "team" && loadingPlan === "team")
+                          }
                         >
                           {plan.cta}
                         </Button>

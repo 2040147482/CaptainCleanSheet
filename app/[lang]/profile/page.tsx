@@ -17,6 +17,8 @@ export default function ProfilePage() {
   const [loadingPat, setLoadingPat] = useState(false);
   const [creatingPat, setCreatingPat] = useState(false);
   const [newPat, setNewPat] = useState<string | null>(null);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
   const locale = useLocale();
   const t = useTranslations("profile");
   type MeResponse = {
@@ -85,6 +87,55 @@ export default function ProfilePage() {
     loadPATs();
   }, [active]);
 
+  async function handleUpgrade() {
+    try {
+      setUpgradeLoading(true);
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan: "pro",
+          lang: locale,
+          customer: me?.user?.email ? { email: me.user.email } : undefined,
+          metadata: { source: "profile", user_id: me?.user?.id, email: me?.user?.email, plan: "pro" },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data?.error || "创建结账会话失败");
+        return;
+      }
+      const url = data?.checkout_url;
+      if (typeof url === "string") {
+        window.location.assign(url);
+      } else {
+        alert("返回的 checkout_url 无效");
+      }
+    } finally {
+      setUpgradeLoading(false);
+    }
+  }
+
+  async function handleManageBilling() {
+    try {
+      setBillingLoading(true);
+      const res = await fetch("/api/billing/portal", { method: "GET" });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data?.error || (locale === "zh" ? "获取账单门户链接失败" : "Failed to get billing portal link"));
+        return;
+      }
+      const url = data?.url;
+      if (typeof url === "string") {
+        window.open(url, "_blank");
+      } else {
+        alert(locale === "zh" ? "返回的账单链接无效" : "Returned billing url is invalid");
+      }
+    } finally {
+      setBillingLoading(false);
+    }
+  }
+
   return (
     <main>
       <Navigation />
@@ -126,7 +177,9 @@ export default function ProfilePage() {
 
                   <div className="flex flex-wrap gap-3">
                     {!["pro", "team"].includes((me?.entitlements?.plan ?? "free").toLowerCase()) && (
-                      <Button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">{t("card.actions.upgrade")}</Button>
+                      <Button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white" onClick={handleUpgrade} disabled={upgradeLoading}>
+                        {t("card.actions.upgrade")}
+                      </Button>
                     )}
                     <Button variant="outline">{t("card.actions.export")}</Button>
                     <Button
@@ -231,8 +284,14 @@ export default function ProfilePage() {
                         <div className="text-sm font-medium">{t("subscription.current")}: {((me?.entitlements?.plan ?? "free").replace(/^\w/, (c) => c.toUpperCase()))}</div>
                         <div className="text-sm text-gray-600">{t("subscription.renewal")}: {me?.entitlements?.current_period_end ? new Date(me.entitlements.current_period_end).toLocaleDateString() : "-"}</div>
                       </div>
-                      {!["pro", "team"].includes((me?.entitlements?.plan ?? "free").toLowerCase()) && (
-                        <Button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">{t("subscription.upgrade")}</Button>
+                      {!["pro", "team"].includes((me?.entitlements?.plan ?? "free").toLowerCase()) ? (
+                        <Button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white" onClick={handleUpgrade} disabled={upgradeLoading}>
+                          {t("subscription.upgrade")}
+                        </Button>
+                      ) : (
+                        <Button variant="outline" onClick={handleManageBilling} disabled={billingLoading}>
+                          {locale === "zh" ? "管理账单" : "Manage Billing"}
+                        </Button>
                       )}
                     </div>
                     <div className="mt-6">

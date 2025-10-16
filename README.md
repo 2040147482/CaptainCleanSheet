@@ -199,3 +199,29 @@ Example: read entitlements with plugin token:
 ```bash
 curl -H "Authorization: Bearer <plugin_jwt>" http://localhost:3000/api/plugin/entitlements
 ```
+
+## Database Schema & RLS
+
+- A full SQL schema with tables, constraints, indexes, triggers, and RLS policies is provided at `docs/supabase-schema.sql`.
+- Apply it in your Supabase project (SQL editor or migration tool). The script covers:
+  - `profiles` (auto-created via trigger on `auth.users`, owner-readable/updatable).
+  - `subscriptions` (synced via Creem webhooks, owner-readable).
+  - `usage_events` (for rate limiting, owner-readable; indexes on `(user_id, created_at)` and `(org_id, created_at)`).
+  - `refresh_tokens` (admin-only).
+  - `api_keys` (PATs, owner CRUD; `status` check constraint).
+  - `device_codes` (admin-only, status lifecycle).
+  - `webhooks_log` (idempotency by `digest`, admin-only).
+
+Migration steps:
+
+1. Open your Supabase project dashboard → SQL editor.
+2. Paste the contents of `docs/supabase-schema.sql` and run.
+3. Verify tables exist and RLS policies are enabled as intended.
+4. Create users via the app; `profiles` rows will be auto-created.
+5. Configure environment variables in `.env.local` (see `.env.example`) including Creem keys and optional test base `CREEM_API_BASE=https://test-api.creem.io`.
+
+Notes:
+
+- Service role operations in API routes bypass RLS (intended for webhooks and device/PAT flows).
+- Owner-select policies are required for `/api/auth/me`, `lib/entitlements.ts`, and `lib/rate-limit.ts` to read `subscriptions` and `usage_events` via user session.
+- If you later add org memberships, extend `subscriptions` and `usage_events` policies to allow access based on org membership.
