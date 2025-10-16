@@ -201,14 +201,6 @@ export default function ProfilePage() {
     }
   }
 
-  function monthLabel() {
-    const key = billingData?.month || selectedMonth;
-    if (!key) return "";
-    const d = new Date(`${key}-01T00:00:00`);
-    const fmt = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" });
-    return fmt.format(d);
-  }
-
   function rangeLabel() {
     const key = billingData?.month || selectedMonth;
     const d = new Date(`${key}-01T00:00:00`);

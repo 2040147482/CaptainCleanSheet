@@ -49,6 +49,13 @@ export async function POST(req: NextRequest) {
     const localizedPath = lang ? `/${lang}${defaultSuccessPath}` : defaultSuccessPath;
     const successUrl = body.success_url || new URL(localizedPath, req.nextUrl.origin).toString();
 
+    // Ensure metadata carries user email when available
+    const providedEmail = typeof body.customer?.email === "string" ? body.customer.email : undefined;
+    const metadata: Record<string, unknown> = { ...(body.metadata ?? {}) };
+    if (providedEmail && (metadata as Record<string, unknown>).email == null) {
+      (metadata as Record<string, unknown>).email = providedEmail;
+    }
+
     const payload: CreateCheckoutRequest = {
       request_id: requestId,
       product_id: productId,
@@ -57,7 +64,7 @@ export async function POST(req: NextRequest) {
       customer: body.customer,
       custom_field: body.custom_field,
       success_url: successUrl,
-      metadata: body.metadata ?? {},
+      metadata,
     };
 
     const checkout = await createCheckoutSession(payload);
