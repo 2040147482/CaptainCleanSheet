@@ -42,7 +42,17 @@ export async function POST(req: NextRequest) {
     }
 
     const payload = JSON.parse(rawBody);
-    const type: string | undefined = payload?.type ?? payload?.event ?? payload?.data?.type;
+    // Robustly resolve event type across providers: type | event | eventType | nested variants
+    const type: string | undefined =
+      payload?.type ||
+      payload?.event ||
+      payload?.eventType ||
+      payload?.data?.type ||
+      payload?.data?.event ||
+      payload?.data?.eventType ||
+      payload?.object?.type ||
+      payload?.object?.event ||
+      payload?.object?.eventType;
 
     const admin = createAdminClient();
     const digest = crypto.createHash("sha256").update(rawBody).digest("hex");
@@ -83,14 +93,28 @@ export async function POST(req: NextRequest) {
 
     // Helper: resolve user_id from payload
     async function resolveUserId(): Promise<string | null> {
+      // Prefer explicit user_id from metadata
       const mdUserId: string | undefined = payload?.data?.metadata?.user_id ?? payload?.metadata?.user_id;
       if (mdUserId && typeof mdUserId === "string") return mdUserId;
-      const email: string | undefined = payload?.data?.customer?.email ?? payload?.data?.customer_email ?? payload?.customer?.email;
+
+      // Fallback: try multiple email sources including metadata.email
+      const emailCandidates: Array<string | undefined> = [
+        payload?.data?.customer?.email,
+        payload?.data?.customer_email,
+        payload?.customer?.email,
+        payload?.object?.customer?.email,
+        payload?.data?.metadata?.email,
+        payload?.metadata?.email,
+        payload?.object?.metadata?.email,
+      ];
+      const email = emailCandidates.find((e) => typeof e === "string" && !!e?.trim());
       if (!email) return null;
+
+      // Case-insensitive match to be robust with provider case variations
       const { data: profile } = await admin
         .from("profiles")
         .select("user_id")
-        .eq("email", email)
+        .ilike("email", email)
         .limit(1)
         .maybeSingle();
       return profile?.user_id ?? null;
@@ -99,11 +123,52 @@ export async function POST(req: NextRequest) {
     // Helper: persist subscription changes
     async function upsertSubscription(sub: SubscriptionLike | null | undefined, userId: string | null) {
       if (!sub) return;
-      const plan: string | undefined = sub?.plan ?? sub?.product?.plan ?? payload?.data?.plan;
-      const status: string | undefined = sub?.status;
-      const currentPeriodEnd: string | undefined = sub?.current_period_end ?? sub?.period_end;
-      const customerId: string | undefined = sub?.customer ?? sub?.customer_id ?? payload?.data?.customer;
-      const subscriptionId: string | undefined = sub?.id ?? payload?.data?.subscription;
+      let plan: string | undefined =
+        sub?.plan ??
+        sub?.product?.plan ??
+        payload?.data?.product?.plan ??
+        payload?.object?.product?.plan ??
+        payload?.data?.plan ??
+        payload?.data?.metadata?.plan;
+      // Infer plan from product name if still missing
+      if (!plan) {
+        const productName: string | undefined = payload?.object?.product?.name ?? payload?.data?.product?.name;
+        if (productName) {
+          const lower = productName.toLowerCase();
+          if (lower.includes("team")) plan = "team";
+          else if (lower.includes("pro")) plan = "pro";
+        }
+      }
+      const status: string | undefined =
+        sub?.status ??
+        payload?.data?.subscription?.status ??
+        payload?.data?.status ??
+        payload?.object?.subscription?.status ??
+        payload?.object?.status;
+      const currentPeriodEnd: string | undefined =
+        sub?.current_period_end ??
+        sub?.period_end ??
+        payload?.data?.subscription?.current_period_end ??
+        payload?.data?.current_period_end ??
+        payload?.object?.subscription?.current_period_end ??
+        payload?.object?.subscription?.current_period_end_date ??
+        payload?.object?.current_period_end;
+      const customerId: string | undefined =
+        sub?.customer ??
+        sub?.customer_id ??
+        (typeof payload?.data?.customer === "string" ? payload?.data?.customer : undefined) ??
+        payload?.data?.customer_id ??
+        payload?.data?.customer?.id ??
+        (typeof payload?.object?.customer === "string" ? payload?.object?.customer : undefined) ??
+        payload?.object?.customer?.id ??
+        payload?.object?.order?.customer ??
+        payload?.object?.subscription?.customer;
+      const subscriptionId: string | undefined =
+        sub?.id ??
+        (typeof payload?.data?.subscription === "string" ? payload?.data?.subscription : undefined) ??
+        payload?.data?.subscription?.id ??
+        (typeof payload?.object?.subscription === "string" ? payload?.object?.subscription : undefined) ??
+        payload?.object?.subscription?.id;
 
       const record: SubscriptionUpsertRecord = {
         plan: plan ?? null,
@@ -116,7 +181,10 @@ export async function POST(req: NextRequest) {
 
       // Try to upsert by subscription_id or user_id
       if (subscriptionId) {
-        await admin.from("subscriptions").upsert({ ...record, user_id: userId ?? null }, { onConflict: "subscription_id" });
+        const { error } = await admin
+          .from("subscriptions")
+          .upsert({ ...record, user_id: userId ?? null }, { onConflict: "subscription_id" });
+        if (error) throw new Error(`subscriptions upsert by subscription_id failed: ${error.message}`);
       } else if (customerId) {
         // No subscription_id: try update by customer_id; if none, insert
         const { data: existingByCustomer } = await admin
@@ -126,9 +194,16 @@ export async function POST(req: NextRequest) {
           .limit(1)
           .maybeSingle();
         if (existingByCustomer?.id) {
-          await admin.from("subscriptions").update({ ...record, user_id: userId ?? null }).eq("id", existingByCustomer.id);
+          const { error } = await admin
+            .from("subscriptions")
+            .update({ ...record, user_id: userId ?? null })
+            .eq("id", existingByCustomer.id);
+          if (error) throw new Error(`subscriptions update by customer_id failed: ${error.message}`);
         } else {
-          await admin.from("subscriptions").insert({ ...record, user_id: userId ?? null });
+          const { error } = await admin
+            .from("subscriptions")
+            .insert({ ...record, user_id: userId ?? null });
+          if (error) throw new Error(`subscriptions insert by customer_id failed: ${error.message}`);
         }
       } else if (userId) {
         // Fallback: update latest for user or insert new
@@ -140,9 +215,16 @@ export async function POST(req: NextRequest) {
           .limit(1)
           .maybeSingle();
         if (existingByUser?.id) {
-          await admin.from("subscriptions").update({ ...record, user_id: userId }).eq("id", existingByUser.id);
+          const { error } = await admin
+            .from("subscriptions")
+            .update({ ...record, user_id: userId })
+            .eq("id", existingByUser.id);
+          if (error) throw new Error(`subscriptions update by user_id failed: ${error.message}`);
         } else {
-          await admin.from("subscriptions").insert({ ...record, user_id: userId });
+          const { error } = await admin
+            .from("subscriptions")
+            .insert({ ...record, user_id: userId });
+          if (error) throw new Error(`subscriptions insert by user_id failed: ${error.message}`);
         }
       } else {
         // If we can't associate, at least log the subscription raw
@@ -153,32 +235,112 @@ export async function POST(req: NextRequest) {
       if (userId && plan) {
         const updates: ProfileUpdates = { plan };
         if (currentPeriodEnd) updates.plan_expires = currentPeriodEnd ?? null;
-        await admin.from("profiles").update(updates).eq("user_id", userId);
+        const { error } = await admin
+          .from("profiles")
+          .update(updates)
+          .eq("user_id", userId);
+        if (error) throw new Error(`profiles plan sync failed: ${error.message}`);
       }
     }
 
     try {
       switch (type) {
         case "checkout.completed": {
-          const requestId = payload?.data?.request_id ?? payload?.request_id;
+          const requestId = payload?.data?.request_id ?? payload?.request_id ?? payload?.object?.request_id;
           const userId = await resolveUserId();
-          const plan: string | undefined = payload?.data?.metadata?.plan ?? payload?.metadata?.plan;
-          const currentPeriodEnd: string | undefined = payload?.data?.subscription?.current_period_end ?? payload?.data?.current_period_end;
-          const sub: SubscriptionLike | null = payload?.data?.subscription ?? null;
+          // Try normalize plan from various sources. If product doesn't carry plan, infer from name.
+          let plan: string | undefined =
+            payload?.data?.metadata?.plan ?? payload?.metadata?.plan ?? payload?.data?.product?.plan ?? payload?.object?.product?.plan;
+          const productName: string | undefined = payload?.object?.product?.name ?? payload?.data?.product?.name;
+          if (!plan && productName) {
+            const lower = productName.toLowerCase();
+            if (lower.includes("team")) plan = "team";
+            else if (lower.includes("pro")) plan = "pro";
+          }
+          const currentPeriodEnd: string | undefined =
+            payload?.data?.subscription?.current_period_end ??
+            payload?.data?.current_period_end ??
+            payload?.object?.subscription?.current_period_end ??
+            payload?.object?.subscription?.current_period_end_date;
+          const sub: SubscriptionLike | null = (payload?.data?.subscription ?? payload?.object?.subscription) ?? null;
 
           // Optionally record payments/orders table here (if exists)
           // Upsert subscription and profiles
-          await upsertSubscription(sub, userId);
+          if (sub) {
+            await upsertSubscription(sub, userId);
+          } else {
+            // Fallback: construct minimal record from checkout payload
+            const fallback: SubscriptionLike = {
+              plan,
+              status: payload?.data?.status ?? payload?.object?.status,
+              current_period_end: currentPeriodEnd,
+              customer_id:
+                payload?.data?.customer ??
+                payload?.data?.customer_id ??
+                payload?.data?.customer?.id ??
+                (typeof payload?.object?.customer === "string" ? payload?.object?.customer : undefined) ??
+                payload?.object?.customer?.id,
+              id:
+                (typeof payload?.data?.subscription === "string" ? payload?.data?.subscription : undefined) ??
+                payload?.data?.subscription?.id ??
+                (typeof payload?.object?.subscription === "string" ? payload?.object?.subscription : undefined) ??
+                payload?.object?.subscription?.id,
+              product: (payload?.data?.product || payload?.object?.product) ? { plan: plan } : null,
+            };
+            await upsertSubscription(fallback, userId);
+          }
           if (userId && plan) {
-            await admin.from("profiles").update({ plan, plan_expires: currentPeriodEnd ?? null }).eq("user_id", userId);
+            const { error } = await admin
+              .from("profiles")
+              .update({ plan, plan_expires: currentPeriodEnd ?? null })
+              .eq("user_id", userId);
+            if (error) throw new Error(`profiles plan update failed: ${error.message}`);
           }
           console.log("[creem] checkout.completed", { requestId, userId, plan });
+          break;
+        }
+        case "order.completed": {
+          // Some integrations may emit order-level completion without embedded subscription
+          const userId = await resolveUserId();
+          let plan: string | undefined = payload?.data?.product?.plan ?? payload?.object?.product?.plan ?? payload?.data?.metadata?.plan;
+          const productName2: string | undefined = payload?.object?.product?.name ?? payload?.data?.product?.name;
+          if (!plan && productName2) {
+            const lower = productName2.toLowerCase();
+            if (lower.includes("team")) plan = "team";
+            else if (lower.includes("pro")) plan = "pro";
+          }
+          const fallback: SubscriptionLike = {
+            plan,
+            status: payload?.data?.status ?? payload?.object?.status,
+            customer_id:
+              payload?.data?.customer ??
+              payload?.data?.customer_id ??
+              payload?.data?.customer?.id ??
+              (typeof payload?.object?.customer === "string" ? payload?.object?.customer : undefined) ??
+              payload?.object?.customer?.id ??
+              payload?.object?.order?.customer,
+            id:
+              (typeof payload?.data?.subscription === "string" ? payload?.data?.subscription : undefined) ??
+              payload?.data?.subscription?.id ??
+              (typeof payload?.object?.subscription === "string" ? payload?.object?.subscription : undefined) ??
+              payload?.object?.subscription?.id,
+            product: (payload?.data?.product || payload?.object?.product) ? { plan } : null,
+          };
+          await upsertSubscription(fallback, userId);
+          if (userId && plan) {
+            const { error } = await admin
+              .from("profiles")
+              .update({ plan })
+              .eq("user_id", userId);
+            if (error) throw new Error(`profiles plan update (order.completed) failed: ${error.message}`);
+          }
+          console.log("[creem] order.completed", { userId, plan });
           break;
         }
         case "subscription.created":
         case "subscription.updated":
         case "subscription.canceled": {
-          const subscription: SubscriptionLike | null = (payload?.data?.subscription ?? payload?.data) ?? null;
+          const subscription: SubscriptionLike | null = (payload?.data?.subscription ?? payload?.object?.subscription ?? payload?.data ?? payload?.object) ?? null;
           const userId = await resolveUserId();
           await upsertSubscription(subscription, userId);
           console.log(`[creem] ${type}`, { userId, subscriptionId: subscription?.id });

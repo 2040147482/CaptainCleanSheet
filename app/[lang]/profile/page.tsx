@@ -162,7 +162,7 @@ export default function ProfilePage() {
           lang: locale,
           customer: me?.user?.email ? { email: me.user.email } : undefined,
           metadata: { source: "profile", user_id: me?.user?.id, email: me?.user?.email, plan: "pro" },
-          success_url: new URL(`/${locale}/profile/billing`, window.location.origin).toString(),
+          success_url: new URL(`/${locale}/profile/billing`, process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).toString(),
         }),
       });
       const data = await res.json();

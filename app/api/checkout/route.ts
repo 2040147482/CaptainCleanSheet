@@ -47,7 +47,13 @@ export async function POST(req: NextRequest) {
       lang = (refMatch?.[1] || pathMatch?.[1]) as string | undefined;
     }
     const localizedPath = lang ? `/${lang}${defaultSuccessPath}` : defaultSuccessPath;
-    const successUrl = body.success_url || new URL(localizedPath, req.nextUrl.origin).toString();
+    // Prefer explicit env site url, then proxy headers (ngrok), then local origin
+    const envOrigin = process.env.NEXT_PUBLIC_SITE_URL;
+    const xfProto = req.headers.get("x-forwarded-proto");
+    const xfHost = req.headers.get("x-forwarded-host");
+    const forwardedOrigin = xfProto && xfHost ? `${xfProto}://${xfHost}` : undefined;
+    const originBase = envOrigin || forwardedOrigin || req.nextUrl.origin;
+    const successUrl = body.success_url || new URL(localizedPath, originBase).toString();
 
     // Ensure metadata carries user email when available
     const providedEmail = typeof body.customer?.email === "string" ? body.customer.email : undefined;

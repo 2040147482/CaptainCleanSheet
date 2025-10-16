@@ -24,14 +24,24 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
     const admin = createAdminClient();
-    // Resolve latest subscription for customer_id
-    const { data: sub } = await admin
+    // Resolve latest subscription for customer_id, prefer non-null customer_id
+    const { data: subByCustomer } = await admin
       .from("subscriptions")
       .select("customer_id")
       .eq("user_id", user.id)
+      .not("customer_id", "is", null)
       .order("current_period_end", { ascending: false })
       .limit(1)
       .maybeSingle();
+    const sub = subByCustomer ?? (
+      await admin
+        .from("subscriptions")
+        .select("customer_id")
+        .eq("user_id", user.id)
+        .order("current_period_end", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    ).data;
 
     const customerId: string | null = sub?.customer_id ?? null;
 
