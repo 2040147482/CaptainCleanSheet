@@ -49,16 +49,17 @@ export async function POST(req: NextRequest) {
     const eventId = payload?.id || payload?.event_id || payload?.data?.id || payload?.data?.event_id || null;
     const receivedAt = new Date().toISOString();
 
-    // Idempotency: check webhooks_log by digest
-    const { data: existing } = await admin
-      .from("webhooks_log")
-      .select("id")
-      .eq("digest", digest)
-      .limit(1)
-      .maybeSingle();
-
-    if (existing) {
-      return NextResponse.json({ ok: true, dedup: true });
+    // Enhanced idempotency pre-check: prefer event_id when available
+    if (eventId) {
+      const { data: existByEvent } = await admin
+        .from("webhooks_log")
+        .select("id")
+        .eq("event_id", eventId)
+        .limit(1)
+        .maybeSingle();
+      if (existByEvent) {
+        return NextResponse.json({ ok: true, dedup: true, by: "event_id" });
+      }
     }
 
     // Insert initial log entry
@@ -71,8 +72,13 @@ export async function POST(req: NextRequest) {
       status: "received",
     });
     if (logErr) {
-      // Continue processing even if logging fails, but report
-      console.warn("[creem] failed to log webhook:", logErr.message);
+      const msg = (logErr as unknown as { message?: string; code?: string })?.message ?? "";
+      const code = (logErr as unknown as { code?: string })?.code ?? "";
+      // If unique violation (digest duplicated), treat as idempotent hit
+      if (code === "23505" || /duplicate key/i.test(msg)) {
+        return NextResponse.json({ ok: true, dedup: true, by: "digest" });
+      }
+      console.warn("[creem] failed to log webhook:", msg || logErr);
     }
 
     // Helper: resolve user_id from payload
@@ -110,12 +116,37 @@ export async function POST(req: NextRequest) {
 
       // Try to upsert by subscription_id or user_id
       if (subscriptionId) {
-        await admin.from("subscriptions").upsert({ ...record }, { onConflict: "subscription_id" });
+        await admin.from("subscriptions").upsert({ ...record, user_id: userId ?? null }, { onConflict: "subscription_id" });
+      } else if (customerId) {
+        // No subscription_id: try update by customer_id; if none, insert
+        const { data: existingByCustomer } = await admin
+          .from("subscriptions")
+          .select("id")
+          .eq("customer_id", customerId)
+          .limit(1)
+          .maybeSingle();
+        if (existingByCustomer?.id) {
+          await admin.from("subscriptions").update({ ...record, user_id: userId ?? null }).eq("id", existingByCustomer.id);
+        } else {
+          await admin.from("subscriptions").insert({ ...record, user_id: userId ?? null });
+        }
       } else if (userId) {
-        await admin.from("subscriptions").upsert({ ...record }, { onConflict: "user_id" });
+        // Fallback: update latest for user or insert new
+        const { data: existingByUser } = await admin
+          .from("subscriptions")
+          .select("id")
+          .eq("user_id", userId)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (existingByUser?.id) {
+          await admin.from("subscriptions").update({ ...record, user_id: userId }).eq("id", existingByUser.id);
+        } else {
+          await admin.from("subscriptions").insert({ ...record, user_id: userId });
+        }
       } else {
         // If we can't associate, at least log the subscription raw
-        console.warn("[creem] unable to associate subscription to user");
+        console.warn("[creem] unable to associate subscription to user or subscription_id");
       }
 
       // Also sync profiles.plan and plan_expires when possible

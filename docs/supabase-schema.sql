@@ -209,6 +209,11 @@ create table if not exists public.webhooks_log (
 
 create index if not exists webhooks_log_received_idx on public.webhooks_log (received_at);
 
+-- Ensure event_id is unique when present to strengthen idempotency
+create unique index if not exists webhooks_log_event_unique
+  on public.webhooks_log (event_id)
+  where event_id is not null;
+
 alter table public.webhooks_log enable row level security;
 -- No policies: admin-only access
 
