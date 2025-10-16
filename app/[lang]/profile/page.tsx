@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useLocale, useTranslations } from "next-intl";
-import { BarChart3, FileText, Upload, Settings, Sun, Moon, Monitor, Bell, Globe, Database, User, KeyRound, LogOut, Trash } from "lucide-react";
+import { BarChart3, FileText, ReceiptText, Settings, Sun, Moon, Monitor, Bell, Globe, Database, User, KeyRound, LogOut, Trash } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-type TabKey = "overview" | "reports" | "subscription" | "preferences" | "account";
+type TabKey = "overview" | "reports" | "billing" | "preferences" | "account";
 
 export default function ProfilePage() {
   const [active, setActive] = useState<TabKey>("overview");
@@ -29,6 +30,17 @@ export default function ProfilePage() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [, setLoadingMe] = useState<boolean>(false);
 
+  type BillingUsageItem = { units: number; cost_usd: number };
+  type BillingData = {
+    month: string;
+    available_months?: string[];
+    usage: { unit_price_usd?: number; subtotal_usd: number; breakdown: Record<string, BillingUsageItem> };
+    invoices: Array<{ id: string; date: string; amount?: number; currency?: string; status?: string; description?: string; view_url?: string }>;
+  } | null;
+  const [billingData, setBillingData] = useState<BillingData>(null);
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [loadingBillingData, setLoadingBillingData] = useState<boolean>(false);
+
   const emailMasked = (email: string) => {
     const [name, domain] = email.split("@");
     const masked = name.length > 2 ? name.slice(0, 2) + "***" : name[0] + "***";
@@ -45,7 +57,14 @@ export default function ProfilePage() {
 
   const sidebarItem = (key: TabKey, label: string, icon: React.ReactNode) => (
     <button
-      onClick={() => setActive(key)}
+      onClick={() => {
+        try {
+          const base = `/${locale}/profile`;
+          const nextPath = key === "overview" ? base : `${base}/${key}`;
+          window.history.pushState({ tab: key }, "", nextPath);
+        } catch {}
+        setActive(key);
+      }}
       className={`flex items-center gap-3 w-full text-left px-3 py-2 rounded-lg transition-all ${
         active === key ? "bg-gradient-to-r from-blue-500/15 to-purple-600/15 border border-blue-500/30 text-blue-700" : "hover:bg-white/60"
       }`}
@@ -54,6 +73,31 @@ export default function ProfilePage() {
       <span className="text-sm font-medium">{label}</span>
     </button>
   );
+
+  // Sync tab state with History API path: /:lang/profile/:tab
+  useEffect(() => {
+    const valid = new Set<TabKey>(["overview", "reports", "billing", "preferences", "account"]);
+    const readPathOrQuery = () => {
+      const href = typeof window !== "undefined" ? window.location.href : "";
+      if (!href) return;
+      const url = new URL(href);
+      const q = url.searchParams.get("tab");
+      if (q && valid.has(q as TabKey)) {
+        setActive(q as TabKey);
+        return;
+      }
+      const parts = url.pathname.split("/").filter(Boolean);
+      const idx = parts.indexOf("profile");
+      const candidate = parts[idx + 1];
+      if (candidate && valid.has(candidate as TabKey)) {
+        setActive(candidate as TabKey);
+      }
+    };
+    readPathOrQuery();
+    const onPop = () => readPathOrQuery();
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   useEffect(() => {
     // Load basic user profile data for Overview/Subscription cards
@@ -85,7 +129,27 @@ export default function ProfilePage() {
       }
     };
     loadPATs();
-  }, [active]);
+
+    const loadBilling = async () => {
+      if (active !== "billing") return;
+      setLoadingBillingData(true);
+      try {
+        const res = await fetch(`/api/billing/history?month=${encodeURIComponent(selectedMonth)}`, { method: "GET" });
+        const json = await res.json();
+        if (res.ok) {
+          setBillingData(json);
+          if (typeof json?.month === "string") setSelectedMonth(json.month);
+        } else {
+          console.error("Failed to load billing history", json?.error);
+        }
+      } catch (e) {
+        console.error("Load billing error", e);
+      } finally {
+        setLoadingBillingData(false);
+      }
+    };
+    loadBilling();
+  }, [active, selectedMonth]);
 
   async function handleUpgrade() {
     try {
@@ -98,6 +162,7 @@ export default function ProfilePage() {
           lang: locale,
           customer: me?.user?.email ? { email: me.user.email } : undefined,
           metadata: { source: "profile", user_id: me?.user?.id, email: me?.user?.email, plan: "pro" },
+          success_url: new URL(`/${locale}/profile/billing`, window.location.origin).toString(),
         }),
       });
       const data = await res.json();
@@ -136,6 +201,42 @@ export default function ProfilePage() {
     }
   }
 
+  function monthLabel() {
+    const key = billingData?.month || selectedMonth;
+    if (!key) return "";
+    const d = new Date(`${key}-01T00:00:00`);
+    const fmt = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" });
+    return fmt.format(d);
+  }
+
+  function rangeLabel() {
+    const key = billingData?.month || selectedMonth;
+    const d = new Date(`${key}-01T00:00:00`);
+    const first = new Date(d.getFullYear(), d.getMonth(), 1);
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const fmt = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", year: "numeric" });
+    return `${fmt.format(first)} - ${fmt.format(last)}`;
+  }
+
+  function monthKeyLabel(key: string) {
+    const d = new Date(`${key}-01T00:00:00`);
+    return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(d);
+  }
+
+  function recentMonths(n = 6): string[] {
+    const arr: string[] = [];
+    const today = new Date();
+    for (let i = 0; i < n; i++) {
+      const dt = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      arr.push(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`);
+    }
+    return arr;
+  }
+
+  function formatUsd(amount: number, currency: string = "USD") {
+    return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
+  }
+
   return (
     <main>
       <Navigation />
@@ -147,7 +248,7 @@ export default function ProfilePage() {
             <div className="space-y-2">
               {sidebarItem("overview", t("sidebar.overview"), <BarChart3 className="w-4 h-4" />)}
               {sidebarItem("reports", t("sidebar.reports"), <FileText className="w-4 h-4" />)}
-              {sidebarItem("subscription", t("sidebar.subscription"), <Upload className="w-4 h-4" />)}
+              {sidebarItem("billing", t("sidebar.billing"), <ReceiptText className="w-4 h-4" />)}
               {sidebarItem("preferences", t("sidebar.preferences"), <Settings className="w-4 h-4" />)}
               {sidebarItem("account", t("sidebar.account"), <Settings className="w-4 h-4" />)}
             </div>
@@ -271,37 +372,151 @@ export default function ProfilePage() {
               </motion.div>
             )}
 
-            {active === "subscription" && (
+            {active === "billing" && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+                {/* Billing & Invoices */}
                 <Card className="bg-white/80 backdrop-blur">
                   <CardHeader>
-                    <CardTitle className="text-lg">{t("subscription.title")}</CardTitle>
-                    <CardDescription>{t("subscription.desc")}</CardDescription>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-lg">{t("billing.title")}</CardTitle>
+                          <CardDescription>{rangeLabel()}</CardDescription>
+                        </div>
+                        <Button variant="outline" onClick={handleManageBilling} disabled={billingLoading}>
+                          {t("billing.manageBilling")}
+                        </Button>
+                      </div>
+                      <div className="flex">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="w-full sm:w-auto justify-between">
+                              {monthKeyLabel(selectedMonth)}
+                              <span aria-hidden>▾</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-[220px]">
+                            {(billingData?.available_months ?? recentMonths(6)).map((m) => (
+                              <DropdownMenuItem key={m} onSelect={() => setSelectedMonth(m)}>
+                                {monthKeyLabel(m)}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-between p-3 rounded-lg border bg-white/60">
-                      <div>
-                        <div className="text-sm font-medium">{t("subscription.current")}: {((me?.entitlements?.plan ?? "free").replace(/^\w/, (c) => c.toUpperCase()))}</div>
-                        <div className="text-sm text-gray-600">{t("subscription.renewal")}: {me?.entitlements?.current_period_end ? new Date(me.entitlements.current_period_end).toLocaleDateString() : "-"}</div>
-                      </div>
-                      {!["pro", "team"].includes((me?.entitlements?.plan ?? "free").toLowerCase()) ? (
-                        <Button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white" onClick={handleUpgrade} disabled={upgradeLoading}>
-                          {t("subscription.upgrade")}
-                        </Button>
-                      ) : (
-                        <Button variant="outline" onClick={handleManageBilling} disabled={billingLoading}>
-                          {locale === "zh" ? "管理账单" : "Manage Billing"}
-                        </Button>
-                      )}
-                    </div>
-                    <div className="mt-6">
-                      <details className="rounded-lg border bg-white/60 p-3">
-                        <summary className="cursor-pointer text-sm font-medium">{t("subscription.history")}</summary>
-                        <div className="mt-3 space-y-2 text-sm text-gray-700">
-                          <div>2025-02-01 • Pro • $9.99</div>
-                          <div>2025-01-01 • Pro • $9.99</div>
+                    {/* On-Demand Usage */}
+                    <div className="rounded-lg border bg-white/60 p-4 mb-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium">{t("billing.onDemandTitle")}</div>
+                          <div className="text-xs text-gray-600">{rangeLabel()}</div>
                         </div>
-                      </details>
+                        <div className="text-2xl font-bold">{formatUsd(billingData?.usage?.subtotal_usd ?? 0)}</div>
+                      </div>
+                      <div className="mt-4 overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-gray-600">
+                              <th className="text-left py-1 pr-3">{t("billing.columns.type")}</th>
+                              <th className="text-right py-1 pr-3">{t("billing.columns.tokens")}</th>
+                              <th className="text-right py-1 pr-3">{t("billing.columns.cost")}</th>
+                              <th className="text-right py-1 pr-3">{t("billing.columns.qty")}</th>
+                              <th className="text-right py-1">{t("billing.columns.total")}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {loadingBillingData && (
+                              <>
+                                {[1,2,3].map((i) => (
+                                  <tr key={`s-${i}`} className="border-t">
+                                    <td className="py-2 pr-3"><div className="h-4 w-24 bg-gray-200 rounded animate-pulse" /></td>
+                                    <td className="py-2 pr-3 text-right"><div className="h-4 w-16 bg-gray-200 rounded animate-pulse ml-auto" /></td>
+                                    <td className="py-2 pr-3 text-right"><div className="h-4 w-16 bg-gray-200 rounded animate-pulse ml-auto" /></td>
+                                    <td className="py-2 pr-3 text-right"><div className="h-4 w-10 bg-gray-200 rounded animate-pulse ml-auto" /></td>
+                                    <td className="py-2 text-right"><div className="h-4 w-20 bg-gray-200 rounded animate-pulse ml-auto" /></td>
+                                  </tr>
+                                ))}
+                              </>
+                            )}
+                            {Object.entries(billingData?.usage?.breakdown ?? {}).map(([type, item]) => (
+                              <tr key={type} className="border-t">
+                                <td className="py-1 pr-3">{type}</td>
+                                <td className="py-1 pr-3 text-right">{item.units}</td>
+                                <td className="py-1 pr-3 text-right">{formatUsd((billingData?.usage?.unit_price_usd ?? 0))}</td>
+                                <td className="py-1 pr-3 text-right">1</td>
+                                <td className="py-1 text-right">{formatUsd(item.cost_usd)}</td>
+                              </tr>
+                            ))}
+                            {Object.keys(billingData?.usage?.breakdown ?? {}).length === 0 && !loadingBillingData && (
+                              <tr>
+                                <td className="py-2 text-gray-500" colSpan={5}>{locale === "zh" ? "暂无用量" : "No usage this month"}</td>
+                              </tr>
+                            )}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t">
+                              <td className="py-2 font-medium" colSpan={4}>{t("billing.subtotal")}</td>
+                              <td className="py-2 text-right font-bold">{formatUsd(billingData?.usage?.subtotal_usd ?? 0)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Invoices */}
+                    <div className="rounded-lg border bg-white/60 p-4">
+                      <div className="text-sm font-medium mb-3">{t("billing.invoicesTitle")}</div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-gray-600">
+                              <th className="text-left py-1 pr-3">{t("billing.columns.date")}</th>
+                              <th className="text-left py-1 pr-3">{t("billing.columns.description")}</th>
+                              <th className="text-left py-1 pr-3">{t("billing.columns.status")}</th>
+                              <th className="text-right py-1 pr-3">{t("billing.columns.amount")}</th>
+                              <th className="text-right py-1">{t("billing.columns.invoice")}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {loadingBillingData && (
+                              <>
+                                {[1,2].map((i) => (
+                                  <tr key={`inv-s-${i}`} className="border-t">
+                                    <td className="py-2 pr-3"><div className="h-4 w-28 bg-gray-200 rounded animate-pulse" /></td>
+                                    <td className="py-2 pr-3"><div className="h-4 w-48 bg-gray-200 rounded animate-pulse" /></td>
+                                    <td className="py-2 pr-3"><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></td>
+                                    <td className="py-2 pr-3 text-right"><div className="h-4 w-20 bg-gray-200 rounded animate-pulse ml-auto" /></td>
+                                    <td className="py-2 text-right"><div className="h-7 w-16 bg-gray-200 rounded animate-pulse ml-auto" /></td>
+                                  </tr>
+                                ))}
+                              </>
+                            )}
+                            {(billingData?.invoices ?? []).map((inv) => (
+                              <tr key={inv.id} className="border-t">
+                                <td className="py-1 pr-3">{new Date(inv.date).toLocaleDateString()}</td>
+                                <td className="py-1 pr-3">{inv.description ?? "-"}</td>
+                                <td className="py-1 pr-3">{inv.status ?? "-"}</td>
+                                <td className="py-1 pr-3 text-right">{formatUsd(inv.amount ?? 0, inv.currency ?? "USD")}</td>
+                                <td className="py-1 text-right">
+                                  {inv.view_url ? (
+                                    <Button variant="ghost" size="sm" onClick={() => window.open(inv.view_url!, "_blank")}>{t("common.view")}</Button>
+                                  ) : (
+                                    <Button variant="ghost" size="sm" onClick={handleManageBilling}>{t("common.view")}</Button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                            {(billingData?.invoices ?? []).length === 0 && !loadingBillingData && (
+                              <tr>
+                                <td className="py-2 text-gray-500" colSpan={5}>{t("billing.empty")}</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

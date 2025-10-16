@@ -22,7 +22,7 @@
     "sidebar": {
       "overview": "总览",
       "reports": "我的报告",
-      "subscription": "订阅计划",
+      "billing": "账单与发票",
       "preferences": "偏好设置",
       "account": "账号管理"
     },
@@ -40,6 +40,27 @@
       "quick": { "generateReport": "生成报告", "cleanSheet": "清理数据表", "export": "导出" }
     },
     "reports": { "title": "我的报告", "desc": "历史报告列表", "itemTitle": "报告 #{index}" },
+
+    "billing": {
+      "title": "账单与发票",
+      "manageBilling": "管理账单",
+      "onDemandTitle": "按需用量",
+      "invoicesTitle": "发票",
+      "subtotal": "小计",
+      "empty": "暂无发票",
+      "columns": {
+        "type": "类型",
+        "tokens": "Tokens",
+        "cost": "费用",
+        "qty": "数量",
+        "total": "总计",
+        "date": "日期",
+        "description": "描述",
+        "status": "状态",
+        "amount": "金额",
+        "invoice": "发票"
+      }
+    },
     "subscription": { "title": "订阅计划", "desc": "当前套餐与续订信息", "current": "当前套餐", "renewal": "续订日期", "upgrade": "升级套餐", "history": "历史账单（折叠）" },
     "preferences": { "title": "偏好设置", "desc": "语言、主题、通知和存储方式", "language": "语言", "theme": "主题", "notifications": "通知", "storage": "存储方式", "light": "浅色", "dark": "深色" },
     "logout": { "title": "登出", "desc": "退出当前账户", "action": "退出登录" },

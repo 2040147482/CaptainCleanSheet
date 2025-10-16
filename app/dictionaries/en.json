@@ -22,7 +22,7 @@
     "sidebar": {
       "overview": "Overview",
       "reports": "My Reports",
-      "subscription": "Subscription",
+      "billing": "Billing & Invoices",
       "preferences": "Preferences",
       "account": "Account Management"
     },
@@ -40,6 +40,27 @@
       "quick": { "generateReport": "Generate Report", "cleanSheet": "Clean Sheet", "export": "Export" }
     },
     "reports": { "title": "My Reports", "desc": "History of generated reports", "itemTitle": "Report #{index}" },
+
+    "billing": {
+      "title": "Billing & Invoices",
+      "manageBilling": "Manage Billing",
+      "onDemandTitle": "On-Demand Usage",
+      "invoicesTitle": "Invoices",
+      "subtotal": "Subtotal",
+      "empty": "No invoices",
+      "columns": {
+        "type": "Type",
+        "tokens": "Tokens",
+        "cost": "Cost",
+        "qty": "Qty",
+        "total": "Total",
+        "date": "Date",
+        "description": "Description",
+        "status": "Status",
+        "amount": "Amount",
+        "invoice": "Invoice"
+      }
+    },
     "subscription": { "title": "Subscription", "desc": "Current plan and renewal info", "current": "Current Plan", "renewal": "Renewal Date", "upgrade": "Upgrade Plan", "history": "Billing History (collapsible)" },
     "preferences": { "title": "Preferences", "desc": "Language, theme, notifications, storage", "language": "Language", "theme": "Theme", "notifications": "Notifications", "storage": "Storage", "light": "Light", "dark": "Dark" },
     "logout": { "title": "Logout", "desc": "Sign out of your account", "action": "Sign out" },

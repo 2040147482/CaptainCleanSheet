@@ -102,3 +102,39 @@ export function verifyWebhookSignature(rawBody: string, signature: string | null
   if (sigBuf.length !== compBuf.length) return false;
   return crypto.timingSafeEqual(sigBuf, compBuf);
 }
+
+// ---- Transactions / Invoices (best-effort client) ----
+export type Transaction = {
+  id: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+  description?: string;
+  summary?: string;
+  created_at?: string;
+  invoice_url?: string;
+  url?: string;
+};
+
+export async function listCustomerTransactions(customerId: string): Promise<{ items: Transaction[]; total?: number; has_more?: boolean }> {
+  if (!CREEM_API_KEY) {
+    throw new Error("CREEM_API_KEY is not configured");
+  }
+  // Try POST search endpoint first, then fall back to GET list
+  try {
+    return await creemFetch<{ items: Transaction[]; total?: number; has_more?: boolean }>("/v1/transactions/search", {
+      method: "POST",
+      body: JSON.stringify({ customer_id: customerId, page_number: 1, page_size: 50 }),
+    });
+  } catch {
+    // Fallback GET
+    try {
+      return await creemFetch<{ items: Transaction[]; total?: number; has_more?: boolean }>(`/v1/transactions?customer_id=${encodeURIComponent(customerId)}&page_size=50`, {
+        method: "GET",
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to list transactions: ${msg}`);
+    }
+  }
+}
