@@ -1,24 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SubscriptionLike, ProfileUpdates, WebhookPayload, SubscriptionRecord } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-type SubscriptionLike = {
-  plan?: string;
-  status?: string;
-  current_period_end?: string;
-  period_end?: string;
-  customer?: string;
-  customer_id?: string;
-  id?: string;
-  product?: { plan?: string } | null;
-};
-
-type ProfileUpdates = {
-  plan?: string;
-  plan_expires?: string | null;
-};
+ 
 
 export async function GET(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -36,19 +23,22 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
   if (logErr || !log) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  const payload: any = log.payload;
+  const payload: WebhookPayload = log.payload as WebhookPayload;
 
   async function resolveUserId(): Promise<string | null> {
-    const mdUserId: string | undefined = payload?.data?.metadata?.user_id ?? payload?.metadata?.user_id ?? payload?.object?.metadata?.user_id;
+    const mdUserId: string | undefined =
+      (payload?.data?.metadata?.user_id as string | undefined) ??
+      (payload?.metadata?.user_id as string | undefined) ??
+      (payload?.object?.metadata?.user_id as string | undefined);
     if (mdUserId && typeof mdUserId === "string") return mdUserId;
     const emailCandidates: Array<string | undefined> = [
-      payload?.data?.customer?.email,
+      typeof payload?.data?.customer === "object" ? payload?.data?.customer?.email : undefined,
       payload?.data?.customer_email,
-      payload?.customer?.email,
-      payload?.object?.customer?.email,
-      payload?.data?.metadata?.email,
-      payload?.metadata?.email,
-      payload?.object?.metadata?.email,
+      typeof payload?.customer === "object" ? payload?.customer?.email : undefined,
+      typeof payload?.object?.customer === "object" ? payload?.object?.customer?.email : undefined,
+      payload?.data?.metadata?.email as string | undefined,
+      payload?.metadata?.email as string | undefined,
+      payload?.object?.metadata?.email as string | undefined,
     ];
     const email = emailCandidates.find((e) => typeof e === "string" && !!e?.trim());
     if (!email) return null;
@@ -69,7 +59,7 @@ export async function GET(req: NextRequest) {
       payload?.data?.product?.plan ??
       payload?.object?.product?.plan ??
       payload?.data?.plan ??
-      payload?.data?.metadata?.plan;
+      (payload?.data?.metadata?.plan as string | undefined);
     if (!plan) {
       const productName: string | undefined = payload?.object?.product?.name ?? payload?.data?.product?.name;
       if (productName) {
@@ -78,34 +68,57 @@ export async function GET(req: NextRequest) {
         else if (lower.includes("pro")) plan = "pro";
       }
     }
-    let status: string | undefined =
-      sub?.status ?? payload?.data?.subscription?.status ?? payload?.data?.status ?? payload?.object?.subscription?.status ?? payload?.object?.status;
+    const status: string | undefined =
+      sub?.status ??
+      (typeof payload?.data?.subscription === "object" ? payload?.data?.subscription?.status : undefined) ??
+      payload?.data?.status ??
+      (typeof payload?.object?.subscription === "object" ? payload?.object?.subscription?.status : undefined) ??
+      payload?.object?.status;
+    const objectSub = typeof payload?.object?.subscription === "object" && payload?.object?.subscription !== null ? payload?.object?.subscription : undefined;
     const currentPeriodEnd: string | undefined =
       sub?.current_period_end ??
       sub?.period_end ??
-      payload?.data?.subscription?.current_period_end ??
+      (typeof payload?.data?.subscription === "object" ? payload?.data?.subscription?.current_period_end : undefined) ??
       payload?.data?.current_period_end ??
-      payload?.object?.subscription?.current_period_end ??
-      payload?.object?.subscription?.current_period_end_date ??
+      (typeof payload?.object?.subscription === "object" ? payload?.object?.subscription?.current_period_end : undefined) ??
+      (objectSub && "current_period_end_date" in objectSub && typeof (objectSub as { current_period_end_date?: unknown }).current_period_end_date === "string"
+        ? (objectSub as { current_period_end_date?: string }).current_period_end_date
+        : undefined) ??
       payload?.object?.current_period_end;
     const customerId: string | undefined =
       sub?.customer ??
       sub?.customer_id ??
-      (typeof payload?.data?.customer === "string" ? payload?.data?.customer : undefined) ??
+      (typeof payload?.data?.customer === "string"
+        ? payload?.data?.customer
+        : typeof payload?.data?.customer === "object"
+        ? payload?.data?.customer?.id
+        : undefined) ??
       payload?.data?.customer_id ??
-      payload?.data?.customer?.id ??
-      (typeof payload?.object?.customer === "string" ? payload?.object?.customer : undefined) ??
-      payload?.object?.customer?.id ??
+      (typeof payload?.object?.customer === "string"
+        ? payload?.object?.customer
+        : typeof payload?.object?.customer === "object"
+        ? payload?.object?.customer?.id
+        : undefined) ??
       payload?.object?.order?.customer ??
-      payload?.object?.subscription?.customer;
+      (typeof payload?.object?.subscription === "object"
+        ? typeof payload?.object?.subscription?.customer === "string"
+          ? payload?.object?.subscription?.customer
+          : payload?.object?.subscription?.customer?.id
+        : undefined);
     const subscriptionId: string | undefined =
       sub?.id ??
-      (typeof payload?.data?.subscription === "string" ? payload?.data?.subscription : undefined) ??
-      payload?.data?.subscription?.id ??
-      (typeof payload?.object?.subscription === "string" ? payload?.object?.subscription : undefined) ??
-      payload?.object?.subscription?.id;
+      (typeof payload?.data?.subscription === "string"
+        ? payload?.data?.subscription
+        : typeof payload?.data?.subscription === "object"
+        ? payload?.data?.subscription?.id
+        : undefined) ??
+      (typeof payload?.object?.subscription === "string"
+        ? payload?.object?.subscription
+        : typeof payload?.object?.subscription === "object"
+        ? payload?.object?.subscription?.id
+        : undefined);
 
-    const record: any = {
+    const record: SubscriptionRecord = {
       plan: plan ?? null,
       status: status ?? null,
       current_period_end: currentPeriodEnd ?? null,
@@ -172,15 +185,27 @@ export async function GET(req: NextRequest) {
     switch (type) {
       case "checkout.completed": {
         const userId = await resolveUserId();
-        let plan: string | undefined = payload?.data?.metadata?.plan ?? payload?.metadata?.plan ?? payload?.data?.product?.plan ?? payload?.object?.product?.plan;
+        let plan: string | undefined =
+          (payload?.data?.metadata?.plan as string | undefined) ??
+          (payload?.metadata?.plan as string | undefined) ??
+          payload?.data?.product?.plan ??
+          payload?.object?.product?.plan;
         const productName: string | undefined = payload?.object?.product?.name ?? payload?.data?.product?.name;
         if (!plan && productName) {
           const lower = productName.toLowerCase();
           if (lower.includes("team")) plan = "team";
           else if (lower.includes("pro")) plan = "pro";
         }
-        const currentPeriodEnd: string | undefined = payload?.data?.subscription?.current_period_end ?? payload?.data?.current_period_end ?? payload?.object?.subscription?.current_period_end ?? payload?.object?.subscription?.current_period_end_date;
-        const sub: SubscriptionLike | null = (payload?.data?.subscription ?? payload?.object?.subscription) ?? null;
+        const objectSub2 = typeof payload?.object?.subscription === "object" && payload?.object?.subscription !== null ? payload?.object?.subscription : undefined;
+        const currentPeriodEnd: string | undefined =
+          (typeof payload?.data?.subscription === "object" ? payload?.data?.subscription?.current_period_end : undefined) ??
+          payload?.data?.current_period_end ??
+          (typeof payload?.object?.subscription === "object" ? payload?.object?.subscription?.current_period_end : undefined) ??
+          (objectSub2 && "current_period_end_date" in objectSub2 && typeof (objectSub2 as { current_period_end_date?: unknown }).current_period_end_date === "string"
+            ? (objectSub2 as { current_period_end_date?: string }).current_period_end_date
+            : undefined);
+        const subCandidate = payload?.data?.subscription ?? payload?.object?.subscription;
+        const sub: SubscriptionLike | null = typeof subCandidate === "string" ? null : (subCandidate as SubscriptionLike | null);
         if (sub) {
           await upsertSubscription(sub, userId);
         } else {
@@ -189,16 +214,28 @@ export async function GET(req: NextRequest) {
             status: payload?.data?.status ?? payload?.object?.status,
             current_period_end: currentPeriodEnd,
             customer_id:
-              payload?.data?.customer ??
+              (typeof payload?.data?.customer === "string"
+                ? payload?.data?.customer
+                : typeof payload?.data?.customer === "object"
+                ? payload?.data?.customer?.id
+                : undefined) ??
               payload?.data?.customer_id ??
-              payload?.data?.customer?.id ??
-              (typeof payload?.object?.customer === "string" ? payload?.object?.customer : undefined) ??
-              payload?.object?.customer?.id,
+              (typeof payload?.object?.customer === "string"
+                ? payload?.object?.customer
+                : typeof payload?.object?.customer === "object"
+                ? payload?.object?.customer?.id
+                : undefined),
             id:
-              (typeof payload?.data?.subscription === "string" ? payload?.data?.subscription : undefined) ??
-              payload?.data?.subscription?.id ??
-              (typeof payload?.object?.subscription === "string" ? payload?.object?.subscription : undefined) ??
-              payload?.object?.subscription?.id,
+              (typeof payload?.data?.subscription === "string"
+                ? payload?.data?.subscription
+                : typeof payload?.data?.subscription === "object"
+                ? payload?.data?.subscription?.id
+                : undefined) ??
+              (typeof payload?.object?.subscription === "string"
+                ? payload?.object?.subscription
+                : typeof payload?.object?.subscription === "object"
+                ? payload?.object?.subscription?.id
+                : undefined),
             product: (payload?.data?.product || payload?.object?.product) ? { plan } : null,
           };
           await upsertSubscription(fallback, userId);
@@ -207,7 +244,7 @@ export async function GET(req: NextRequest) {
       }
       case "order.completed": {
         const userId = await resolveUserId();
-        let plan: string | undefined = payload?.data?.product?.plan ?? payload?.object?.product?.plan ?? payload?.data?.metadata?.plan;
+        let plan: string | undefined = payload?.data?.product?.plan ?? payload?.object?.product?.plan ?? (payload?.data?.metadata?.plan as string | undefined);
         const productName2: string | undefined = payload?.object?.product?.name ?? payload?.data?.product?.name;
         if (!plan && productName2) {
           const lower = productName2.toLowerCase();
@@ -218,17 +255,29 @@ export async function GET(req: NextRequest) {
           plan,
           status: payload?.data?.status ?? payload?.object?.status,
           customer_id:
-            payload?.data?.customer ??
+            (typeof payload?.data?.customer === "string"
+              ? payload?.data?.customer
+              : typeof payload?.data?.customer === "object"
+              ? payload?.data?.customer?.id
+              : undefined) ??
             payload?.data?.customer_id ??
-            payload?.data?.customer?.id ??
-            (typeof payload?.object?.customer === "string" ? payload?.object?.customer : undefined) ??
-            payload?.object?.customer?.id ??
+            (typeof payload?.object?.customer === "string"
+              ? payload?.object?.customer
+              : typeof payload?.object?.customer === "object"
+              ? payload?.object?.customer?.id
+              : undefined) ??
             payload?.object?.order?.customer,
           id:
-            (typeof payload?.data?.subscription === "string" ? payload?.data?.subscription : undefined) ??
-            payload?.data?.subscription?.id ??
-            (typeof payload?.object?.subscription === "string" ? payload?.object?.subscription : undefined) ??
-            payload?.object?.subscription?.id,
+            (typeof payload?.data?.subscription === "string"
+              ? payload?.data?.subscription
+              : typeof payload?.data?.subscription === "object"
+              ? payload?.data?.subscription?.id
+              : undefined) ??
+            (typeof payload?.object?.subscription === "string"
+              ? payload?.object?.subscription
+              : typeof payload?.object?.subscription === "object"
+              ? payload?.object?.subscription?.id
+              : undefined),
           product: (payload?.data?.product || payload?.object?.product) ? { plan } : null,
         };
         await upsertSubscription(fallback, userId);
@@ -237,7 +286,8 @@ export async function GET(req: NextRequest) {
       case "subscription.created":
       case "subscription.updated":
       case "subscription.canceled": {
-        const subscription: SubscriptionLike | null = (payload?.data?.subscription ?? payload?.object?.subscription ?? payload?.data ?? payload?.object) ?? null;
+        const subCandidate2 = payload?.data?.subscription ?? payload?.object?.subscription ?? null;
+        const subscription: SubscriptionLike | null = typeof subCandidate2 === "string" ? null : (subCandidate2 as SubscriptionLike | null);
         const userId = await resolveUserId();
         await upsertSubscription(subscription, userId);
         break;

@@ -22,7 +22,7 @@
     "sidebar": {
       "overview": "总览",
       "reports": "我的报告",
-      "billing": "账单与发票",
+      "billing": "计划与账单",
       "preferences": "偏好设置",
       "account": "账号管理"
     },
@@ -42,12 +42,12 @@
     "reports": { "title": "我的报告", "desc": "历史报告列表", "itemTitle": "报告 #{index}" },
 
     "billing": {
-      "title": "账单与发票",
+      "title": "计划与账单",
       "manageBilling": "管理账单",
       "onDemandTitle": "按需用量",
-      "invoicesTitle": "发票",
+      "invoicesTitle": "历史账单",
       "subtotal": "小计",
-      "empty": "暂无发票",
+      "empty": "暂无账单",
       "columns": {
         "type": "类型",
         "tokens": "Tokens",
@@ -59,6 +59,18 @@
         "status": "状态",
         "amount": "金额",
         "invoice": "发票"
+      },
+      "subscriptionCard": {
+        "title": "订阅计划",
+        "current": "当前计划",
+        "nextCharge": "按月计费，下次扣费日期 {date}",
+        "switchToPro": "切换到Pro计划",
+        "switchToYearly": "切换到年付计划"
+      },
+      "dangerZone": {
+        "title": "危险操作区",
+        "hint": "如果现在取消，您可以在当前订阅到期前继续使用。",
+        "unsubscribe": "取消订阅"
       }
     },
     "subscription": { "title": "订阅计划", "desc": "当前套餐与续订信息", "current": "当前套餐", "renewal": "续订日期", "upgrade": "升级套餐", "history": "历史账单（折叠）" },

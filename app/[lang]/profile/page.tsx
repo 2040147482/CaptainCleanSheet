@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+// 移除月份下拉所需的 DropdownMenu 相关导入
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useLocale, useTranslations } from "next-intl";
 import { BarChart3, FileText, ReceiptText, Settings, Sun, Moon, Monitor, Bell, Globe, Database, User, KeyRound, LogOut, Trash } from "lucide-react";
@@ -210,20 +210,7 @@ export default function ProfilePage() {
     return `${fmt.format(first)} - ${fmt.format(last)}`;
   }
 
-  function monthKeyLabel(key: string) {
-    const d = new Date(`${key}-01T00:00:00`);
-    return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(d);
-  }
-
-  function recentMonths(n = 6): string[] {
-    const arr: string[] = [];
-    const today = new Date();
-    for (let i = 0; i < n; i++) {
-      const dt = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      arr.push(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`);
-    }
-    return arr;
-  }
+  
 
   function formatUsd(amount: number, currency: string = "USD") {
     return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
@@ -379,31 +366,39 @@ export default function ProfilePage() {
                           {t("billing.manageBilling")}
                         </Button>
                       </div>
-                      <div className="flex">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="w-full sm:w-auto justify-between">
-                              {monthKeyLabel(selectedMonth)}
-                              <span aria-hidden>▾</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-[220px]">
-                            {(billingData?.available_months ?? recentMonths(6)).map((m) => (
-                              <DropdownMenuItem key={m} onSelect={() => setSelectedMonth(m)}>
-                                {monthKeyLabel(m)}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                      {/* 已按需移除月份选择下拉 */}
                     </div>
                   </CardHeader>
                   <CardContent>
+                    {/* Subscription Plan (added above On-Demand Usage) */}
+                    <div className="rounded-lg border bg-white/60 p-4 mb-6">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <div className="text-lg font-semibold">{t("billing.subscriptionCard.title")}</div>
+                          <div className="text-sm text-gray-700">{t("billing.subscriptionCard.current")} <span className={`font-semibold ${(me?.entitlements?.plan ?? "").toLowerCase() === "pro" ? "bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent" : ""}`}>{(me?.entitlements?.plan ?? "").toLowerCase() === "pro" ? "Pro" : (me?.entitlements?.plan ?? "-")}</span></div>
+                          <div className="text-sm text-gray-600">{(() => {
+                            const dt = me?.entitlements?.current_period_end ? new Date(me.entitlements.current_period_end) : null;
+                            if (!dt) return "-";
+                            const d = new Intl.DateTimeFormat(locale, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(dt);
+                            return t("billing.subscriptionCard.nextCharge", { date: d });
+                          })()}</div>
+                        </div>
+                        {(me?.entitlements?.plan ?? "").toLowerCase() !== "pro" && (
+                          <Button 
+                            className="bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700" 
+                            onClick={handleManageBilling}
+                          >
+                            {t("billing.subscriptionCard.switchToPro")}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
                     {/* On-Demand Usage */}
                     <div className="rounded-lg border bg-white/60 p-4 mb-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-sm font-medium">{t("billing.onDemandTitle")}</div>
+                          <div className="text-lg font-semibold">{t("billing.onDemandTitle")}</div>
                           <div className="text-xs text-gray-600">{rangeLabel()}</div>
                         </div>
                         <div className="text-2xl font-bold">{formatUsd(billingData?.usage?.subtotal_usd ?? 0)}</div>
@@ -460,7 +455,7 @@ export default function ProfilePage() {
 
                     {/* Invoices */}
                     <div className="rounded-lg border bg-white/60 p-4">
-                      <div className="text-sm font-medium mb-3">{t("billing.invoicesTitle")}</div>
+                      <div className="text-lg font-semibold mb-3">{t("billing.invoicesTitle")}</div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
@@ -508,6 +503,17 @@ export default function ProfilePage() {
                             )}
                           </tbody>
                         </table>
+                      </div>
+                    </div>
+
+                    {/* Danger Zone (added below invoices) */}
+                    <div className="rounded-lg border bg-white/60 p-4 mt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-lg font-semibold">{t("billing.dangerZone.title")}</div>
+                          <div className="text-sm text-gray-600">{t("billing.dangerZone.hint")}</div>
+                        </div>
+                        <Button variant="destructive" onClick={handleManageBilling}>{t("billing.dangerZone.unsubscribe")}</Button>
                       </div>
                     </div>
                   </CardContent>

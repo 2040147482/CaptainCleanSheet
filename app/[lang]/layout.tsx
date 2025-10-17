@@ -19,13 +19,14 @@ export default async function LangLayout({
   params,
 }: Readonly<{
   children: React.ReactNode;
-  params: Promise<{ lang: "zh" | "en" }>;
+  params: Promise<{ lang: string }>;
 }>) {
   const { lang } = await params;
-  const messages = await getDictionary(lang);
+  const locale = lang === "zh" || lang === "en" ? (lang as "zh" | "en") : "zh";
+  const messages = await getDictionary(locale);
 
   return (
-    <NextIntlClientProvider locale={lang} messages={messages}>
+    <NextIntlClientProvider locale={locale} messages={messages}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         {children}
       </ThemeProvider>

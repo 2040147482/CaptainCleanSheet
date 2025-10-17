@@ -22,9 +22,9 @@
     "sidebar": {
       "overview": "Overview",
       "reports": "My Reports",
-      "billing": "Billing & Invoices",
+      "billing": "Plan & Billings",
       "preferences": "Preferences",
-      "account": "Account Management"
+      "account": "Account"
     },
     "card": {
       "plan": "Current Plan",
@@ -42,12 +42,12 @@
     "reports": { "title": "My Reports", "desc": "History of generated reports", "itemTitle": "Report #{index}" },
 
     "billing": {
-      "title": "Billing & Invoices",
+      "title": "Plan & Billings",
       "manageBilling": "Manage Billing",
       "onDemandTitle": "On-Demand Usage",
-      "invoicesTitle": "Invoices",
+      "invoicesTitle": "Billing History",
       "subtotal": "Subtotal",
-      "empty": "No invoices",
+      "empty": "No billing records",
       "columns": {
         "type": "Type",
         "tokens": "Tokens",
@@ -59,6 +59,18 @@
         "status": "Status",
         "amount": "Amount",
         "invoice": "Invoice"
+      },
+      "subscriptionCard": {
+        "title": "Subscription Plan",
+        "current": "Current Plan",
+        "nextCharge": "Billed monthly, next billing date {date}",
+        "switchToPro": "Switch to Pro Plan",
+        "switchToYearly": "Switch to Yearly Plan"
+      },
+      "dangerZone": {
+        "title": "Danger Zone",
+        "hint": "If you cancel now, you can continue to access until your current subscription expires.",
+        "unsubscribe": "Unsubscribe"
       }
     },
     "subscription": { "title": "Subscription", "desc": "Current plan and renewal info", "current": "Current Plan", "renewal": "Renewal Date", "upgrade": "Upgrade Plan", "history": "Billing History (collapsible)" },
