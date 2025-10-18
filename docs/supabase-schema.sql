@@ -226,4 +226,44 @@ grant select on public.subscriptions to authenticated;
 grant select on public.usage_events to authenticated;
 grant all on public.api_keys to authenticated;
 
+-- =====================
+-- invoices
+-- =====================
+-- Stores billing invoices/transactions synced from Creem; optional persistence to improve reliability
+create table if not exists public.invoices (
+  id bigserial primary key,
+  invoice_id text unique,
+  customer_id text,
+  subscription_id text,
+  status text,
+  currency text,
+  amount integer,
+  hosted_url text,
+  issued_at timestamptz,
+  paid_at timestamptz,
+  period_start timestamptz,
+  period_end timestamptz,
+  raw jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists invoices_set_updated_at on public.invoices;
+create trigger invoices_set_updated_at
+before update on public.invoices
+for each row execute function public.set_updated_at();
+
+create index if not exists invoices_customer_idx on public.invoices (customer_id);
+create index if not exists invoices_subscription_idx on public.invoices (subscription_id);
+create index if not exists invoices_issued_idx on public.invoices (issued_at);
+
+alter table public.invoices enable row level security;
+-- RLS can mirror subscription ownership if needed; for now server/admin only
+
+-- Helpful grants
+grant select on public.invoices to authenticated;
+grant select on public.subscriptions to authenticated;
+grant select on public.usage_events to authenticated;
+grant all on public.api_keys to authenticated;
+
 -- End of schema

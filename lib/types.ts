@@ -66,3 +66,40 @@ export type SubscriptionRecord = {
   subscription_id: string | null;
   user_id?: string | null;
 };
+
+export type SubscriptionUpsertRecord = SubscriptionRecord;
+
+export type InvoiceRow = {
+  invoice_id: string | null;
+  status: string | null;
+  currency: string | null;
+  amount: number | null;
+  hosted_url: string | null;
+  issued_at: string | null;
+  paid_at: string | null;
+  period_start: string | null;
+  period_end: string | null;
+};
+
+export type CreemInvoicePayload = {
+  id?: string;
+  customer_id?: string;
+  subscription_id?: string;
+  status?: string;
+  currency?: string;
+  total?: number;
+  amount_due?: number;
+  amount?: number;
+  amount_paid?: number;
+  hosted_url?: string;
+  invoice_url?: string;
+  url?: string;
+  hosted_invoice_url?: string;
+  issued_at?: string | number;
+  created_at?: string | number;
+  created?: string | number;
+  paid_at?: string | number | null;
+  period_start?: string | number;
+  period_end?: string | number;
+  lines?: { data?: Array<{ period?: { start?: string | number; end?: string | number } }> };
+};

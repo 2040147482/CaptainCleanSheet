@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { listCustomerTransactions, type Transaction } from "@/lib/creem";
+import { listCustomerTransactions, searchTransactionsByEmail, type Transaction } from "@/lib/creem";
+import type { InvoiceRow } from "@/lib/types";
 
 type UsageBreakdown = Record<string, { units: number; cost_usd: number }>;
 
@@ -105,6 +106,75 @@ export async function GET(req: NextRequest) {
       } catch {
         // Fallback: no invoices
         invoices = [];
+      }
+    } else if (user.email) {
+      try {
+        const result = await searchTransactionsByEmail(user.email);
+        invoices = (result?.items ?? []).map((it: Transaction) => ({
+          id: String(it.id ?? ""),
+          date: it.created_at ? new Date(it.created_at).toISOString() : new Date().toISOString(),
+          description: it.description ?? it.summary ?? null,
+          status: it.status ?? null,
+          amount: typeof it.amount === "number" ? it.amount : Number(it.amount ?? 0),
+          currency: it.currency ?? "USD",
+          view_url: it.invoice_url ?? it.url ?? null,
+        }));
+      } catch {
+        invoices = [];
+      }
+    }
+
+    // DB fallback: use persisted invoices when external lookup fails
+    if (invoices.length === 0) {
+      try {
+        if (customerId) {
+          const { data: rows } = await admin
+            .from("invoices")
+            .select("invoice_id,status,currency,amount,hosted_url,issued_at,paid_at,period_start,period_end")
+            .eq("customer_id", customerId)
+            .order("issued_at", { ascending: false })
+            .limit(20);
+          const rowsTyped = (rows ?? []) as InvoiceRow[];
+          invoices = rowsTyped.map((r) => ({
+            id: String(r.invoice_id ?? ""),
+            date: r.issued_at ? new Date(r.issued_at).toISOString() : new Date().toISOString(),
+            description: null,
+            status: r.status ?? null,
+            amount: typeof r.amount === "number" ? r.amount : Number(r.amount ?? 0),
+            currency: r.currency ?? "USD",
+            view_url: r.hosted_url ?? null,
+          }));
+        } else {
+          // Resolve likely invoice rows via user's subscriptions when customer_id missing
+          const { data: subs } = await admin
+            .from("subscriptions")
+            .select("subscription_id,customer_id")
+            .eq("user_id", user.id)
+            .order("updated_at", { ascending: false })
+            .limit(5);
+          const subsTyped = (subs ?? []) as Array<{ subscription_id: string | null; customer_id: string | null }>;
+          const custIds = subsTyped.map((s) => s.customer_id).filter(Boolean);
+          const subIds = subsTyped.map((s) => s.subscription_id).filter(Boolean);
+          let q = admin
+            .from("invoices")
+            .select("invoice_id,status,currency,amount,hosted_url,issued_at,paid_at,period_start,period_end");
+          if (custIds.length) q = q.in("customer_id", custIds);
+          else if (subIds.length) q = q.in("subscription_id", subIds);
+          else q = q.eq("invoice_id", "__none__");
+          const { data: rows } = await q.order("issued_at", { ascending: false }).limit(20);
+          const rowsTyped = (rows ?? []) as InvoiceRow[];
+          invoices = rowsTyped.map((r) => ({
+            id: String(r.invoice_id ?? ""),
+            date: r.issued_at ? new Date(r.issued_at).toISOString() : new Date().toISOString(),
+            description: null,
+            status: r.status ?? null,
+            amount: typeof r.amount === "number" ? r.amount : Number(r.amount ?? 0),
+            currency: r.currency ?? "USD",
+            view_url: r.hosted_url ?? null,
+          }));
+        }
+      } catch {
+        // keep invoices empty when fallback fails
       }
     }
 

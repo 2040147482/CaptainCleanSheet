@@ -2,34 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyWebhookSignature } from "@/lib/creem";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+// Minimal types moved to shared module
+import { SubscriptionLike, ProfileUpdates, SubscriptionUpsertRecord, CreemInvoicePayload } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-// Minimal types to avoid any while reflecting used fields
-type SubscriptionLike = {
-  plan?: string;
-  status?: string;
-  current_period_end?: string;
-  period_end?: string;
-  customer?: string;
-  customer_id?: string;
-  id?: string;
-  product?: { plan?: string } | null;
-};
-
-type SubscriptionUpsertRecord = {
-  plan: string | null;
-  status: string | null;
-  current_period_end: string | null;
-  customer_id: string | null;
-  subscription_id: string | null;
-  user_id?: string;
-};
-
-type ProfileUpdates = {
-  plan?: string;
-  plan_expires?: string | null;
-};
 
 export async function POST(req: NextRequest) {
   const signature = req.headers.get("creem-signature");
@@ -243,6 +220,60 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Helper: associate customer_id with subscription/user from invoice events
+    async function associateCustomerSubscription(params: {
+      customer_id?: string | null;
+      subscription_id?: string | null;
+      user_id?: string | null;
+    }) {
+      const { customer_id, subscription_id, user_id } = params;
+      if (!customer_id && !subscription_id && !user_id) return;
+
+      if (subscription_id) {
+        const { data: existingBySub } = await admin
+          .from("subscriptions")
+          .select("id")
+          .eq("subscription_id", subscription_id)
+          .limit(1)
+          .maybeSingle();
+        if (existingBySub?.id) {
+          const { error } = await admin
+            .from("subscriptions")
+            .update({ customer_id, user_id })
+            .eq("id", existingBySub.id);
+          if (error) throw new Error(`subscriptions link by subscription_id failed: ${error.message}`);
+          return;
+        }
+        const { error: insertErr } = await admin
+          .from("subscriptions")
+          .insert({ subscription_id, customer_id: customer_id ?? null, user_id: user_id ?? null });
+        if (insertErr) throw new Error(`subscriptions insert by subscription_id failed: ${insertErr.message}`);
+        return;
+      }
+
+      if (customer_id) {
+        const { data: existingByCustomer } = await admin
+          .from("subscriptions")
+          .select("id")
+          .eq("customer_id", customer_id)
+          .limit(1)
+          .maybeSingle();
+        if (existingByCustomer?.id) {
+          const { error } = await admin
+            .from("subscriptions")
+            .update({ user_id })
+            .eq("id", existingByCustomer.id);
+          if (error) throw new Error(`subscriptions link by customer_id failed: ${error.message}`);
+          return;
+        }
+
+        const { error: insertErr2 } = await admin
+          .from("subscriptions")
+          .insert({ customer_id, user_id: user_id ?? null });
+        if (insertErr2) throw new Error(`subscriptions insert by customer_id failed: ${insertErr2.message}`);
+      }
+    }
+
     try {
       switch (type) {
         case "checkout.completed": {
@@ -344,6 +375,89 @@ export async function POST(req: NextRequest) {
           const userId = await resolveUserId();
           await upsertSubscription(subscription, userId);
           console.log(`[creem] ${type}`, { userId, subscriptionId: subscription?.id });
+          break;
+        }
+        case "invoice.created":
+        case "invoice.payment_succeeded":
+        case "invoice.payment_failed": {
+          const userId = await resolveUserId();
+          const invoiceObj: CreemInvoicePayload =
+            (payload?.data?.invoice ??
+              payload?.object?.invoice ??
+              payload?.data ??
+              payload?.object) as unknown as CreemInvoicePayload;
+
+          const customerId: string | undefined =
+            invoiceObj?.customer_id ??
+            payload?.data?.customer_id ??
+            (typeof payload?.data?.customer === "string" ? payload?.data?.customer : undefined) ??
+            payload?.data?.customer?.id ??
+            (typeof payload?.object?.customer === "string" ? payload?.object?.customer : undefined) ??
+            payload?.object?.customer?.id;
+
+          const subscriptionId: string | undefined =
+            invoiceObj?.subscription_id ??
+            (typeof payload?.data?.subscription === "string" ? payload?.data?.subscription : undefined) ??
+            payload?.data?.subscription?.id ??
+            (typeof payload?.object?.subscription === "string" ? payload?.object?.subscription : undefined) ??
+            payload?.object?.subscription?.id;
+
+          await associateCustomerSubscription({
+            customer_id: customerId ?? null,
+            subscription_id: subscriptionId ?? null,
+            user_id: userId,
+          });
+
+          // Persist invoice to DB for reliability
+          const toIso = (ts: unknown): string | null => {
+            if (!ts) return null;
+            if (typeof ts === "string") return ts;
+            if (typeof ts === "number") return new Date((ts > 1e12 ? ts : ts * 1000)).toISOString();
+            return null;
+          };
+
+          const invoiceId: string | undefined =
+            invoiceObj?.id ?? payload?.data?.id ?? payload?.object?.id ?? payload?.invoice?.id;
+          const status: string | undefined = invoiceObj?.status ?? (type === "invoice.payment_failed" ? "failed" : undefined) ?? (type === "invoice.payment_succeeded" ? "paid" : undefined);
+          const currency: string | undefined = invoiceObj?.currency ?? payload?.data?.currency ?? payload?.object?.currency;
+          const amount: number | undefined =
+            typeof invoiceObj?.total === "number" ? invoiceObj?.total :
+              typeof invoiceObj?.amount_due === "number" ? invoiceObj?.amount_due :
+                typeof invoiceObj?.amount === "number" ? invoiceObj?.amount :
+                  typeof invoiceObj?.amount_paid === "number" ? invoiceObj?.amount_paid : undefined;
+          const hostedUrl: string | undefined =
+            invoiceObj?.hosted_url ?? invoiceObj?.invoice_url ?? invoiceObj?.url ?? invoiceObj?.hosted_invoice_url;
+          const issuedAt: string | null = toIso(invoiceObj?.issued_at ?? invoiceObj?.created_at ?? invoiceObj?.created);
+          const paidAt: string | null = toIso(invoiceObj?.paid_at);
+          const periodStart: string | null = toIso(invoiceObj?.period_start ?? invoiceObj?.lines?.data?.[0]?.period?.start);
+          const periodEnd: string | null = toIso(invoiceObj?.period_end ?? invoiceObj?.lines?.data?.[0]?.period?.end);
+
+          try {
+            const { error } = await admin
+              .from("invoices")
+              .upsert(
+                {
+                  invoice_id: invoiceId ?? null,
+                  customer_id: customerId ?? null,
+                  subscription_id: subscriptionId ?? null,
+                  status: status ?? null,
+                  currency: currency ?? null,
+                  amount: typeof amount === "number" ? Math.round(amount) : null,
+                  hosted_url: hostedUrl ?? null,
+                  issued_at: issuedAt,
+                  paid_at: paidAt,
+                  period_start: periodStart,
+                  period_end: periodEnd,
+                  raw: payload ?? null,
+                },
+                { onConflict: "invoice_id" }
+              );
+            if (error) throw new Error(`invoices upsert failed: ${error.message}`);
+          } catch (err) {
+            console.warn("[creem] invoice persistence failed", err);
+          }
+
+          console.log(`[creem] ${type}`, { userId, customerId, subscriptionId, invoiceId });
           break;
         }
         default: {
