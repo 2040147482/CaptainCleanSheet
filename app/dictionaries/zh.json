@@ -16,7 +16,10 @@
     "account": "账户管理",
     "resetPassword": "重置密码",
     "logout": "退出登录",
-    "install": "安装插件"
+    "install": "安装插件",
+    "resources": "资源",
+    "changelog": "更新日志",
+    "upcomingEvents": "活动预告"
   },
   "profile": {
     "sidebar": {

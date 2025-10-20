@@ -16,7 +16,10 @@
     "account": "Account",
     "resetPassword": "Reset Password",
     "logout": "Logout",
-    "install": "Install Extension"
+    "install": "Install Extension",
+    "resources": "Resources",
+    "changelog": "Changelog",
+    "upcomingEvents": "Upcoming Events"
   },
   "profile": {
     "sidebar": {
