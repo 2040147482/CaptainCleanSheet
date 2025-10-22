@@ -98,6 +98,7 @@ export function Navigation() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
+                    suppressHydrationWarning
                     className="inline-flex items-center gap-1.5 rounded-md bg-transparent px-3 py-1.5 text-gray-800 text-[15px] font-medium tracking-wide hover:text-blue-700 transition-colors"
                     aria-label={t("resources", { default: "Resources" })}
                   >
@@ -124,6 +125,7 @@ export function Navigation() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
+                    suppressHydrationWarning
                     type="button"
                     className="h-9 w-9 flex items-center justify-center text-gray-700 bg-transparent hover:text-blue-600 focus:outline-none"
                     aria-label={t("language", { default: "Language" })}
