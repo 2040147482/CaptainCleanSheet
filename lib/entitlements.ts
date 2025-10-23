@@ -25,6 +25,15 @@ export async function getEntitlementsForUser(userId: string, orgId?: string): Pr
 
   if (error || !data) return defaultEntitlements;
 
+  const status = (data.status ?? "").toLowerCase();
+  const periodEnd = data.current_period_end ? new Date(data.current_period_end) : null;
+  const expired = periodEnd ? periodEnd.getTime() <= Date.now() : false;
+  const inactive = status === "canceled" || status === "expired";
+
+  if (inactive || expired) {
+    return defaultEntitlements;
+  }
+
   const plan = data.plan ?? "free";
   switch (plan) {
     case "pro":

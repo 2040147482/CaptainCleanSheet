@@ -90,6 +90,18 @@ export async function upgradeSubscription(
   });
 }
 
+export async function cancelSubscription(
+  subscriptionId: string,
+  behavior: "at_period_end" | "immediate" = "immediate",
+) {
+  return creemFetch<unknown>(`/v1/subscriptions/${subscriptionId}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ 
+      cancel_at_period_end: behavior === "at_period_end"
+    }),
+  });
+}
+
 export function verifyWebhookSignature(rawBody: string, signature: string | null | undefined) {
   if (!CREEM_WEBHOOK_SECRET) {
     throw new Error("CREEM_WEBHOOK_SECRET is not configured");

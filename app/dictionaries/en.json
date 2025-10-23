@@ -47,10 +47,37 @@
     "billing": {
       "title": "Plan & Billings",
       "manageBilling": "Manage Billing",
+      "cancelSubscription": "Cancel Subscription",
       "onDemandTitle": "On-Demand Usage",
       "invoicesTitle": "Billing History",
       "subtotal": "Subtotal",
       "empty": "No billing records",
+      "subscriptionCard": {
+        "title": "Subscription Plan",
+        "current": "Current plan:",
+        "nextCharge": "Next charge: {date}",
+        "switchToPro": "Upgrade to Pro",
+        "cancelNow": "Cancel Now",
+        "manageBilling": "Manage Billing"
+      },
+      "cancelDialog": {
+        "title": "Cancel Subscription",
+        "description": "Please select cancellation option:",
+        "atPeriodEnd": "Cancel at the end of billing period",
+        "immediate": "Cancel immediately",
+        "atPeriodEndTitle": "Cancel at period end",
+        "atPeriodEndDesc": "You will continue to have access until the current period ends.",
+        "immediateTitle": "Cancel immediately",
+        "immediateDesc": "Access will be removed right away and remaining time will be forfeited.",
+        "confirm": "Confirm cancellation",
+        "confirmAtPeriodEnd": "Confirm cancellation at period end",
+        "confirmImmediate": "Confirm immediate cancellation",
+        "cancel": "Back",
+        "warning": "Immediate cancellation will forfeit remaining time in your current billing period",
+        "success": "Subscription cancelled",
+        "successAtPeriodEnd": "Subscription will be cancelled at the end of billing period",
+        "error": "Failed to cancel subscription, please try again later"
+      },
       "columns": {
         "type": "Type",
         "tokens": "Tokens",
@@ -62,13 +89,6 @@
         "status": "Status",
         "amount": "Amount",
         "invoice": "Invoice"
-      },
-      "subscriptionCard": {
-        "title": "Subscription Plan",
-        "current": "Current Plan",
-        "nextCharge": "Billed monthly, next billing date {date}",
-        "switchToPro": "Switch to Pro Plan",
-        "switchToYearly": "Switch to Yearly Plan"
       },
       "dangerZone": {
         "title": "Danger Zone",
@@ -102,7 +122,7 @@
       "createdAt": "Created",
       "lastUsedAt": "Last Used"
     },
-    "common": { "view": "View", "export": "Export", "user": "User" }
+    "common": { "view": "View", "export": "Export", "user": "User", "cancel": "Cancel", "processing": "Processing..." }
   },
   "hero": {
     "title": { "line1": "Make your spreadsheets", "highlight": "brand new" },

@@ -6,9 +6,17 @@ import { Button } from "@/components/ui/button";
 // 移除月份下拉所需的 DropdownMenu 相关导入
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useLocale, useTranslations } from "next-intl";
-import { BarChart3, FileText, ReceiptText, Settings, Sun, Moon, Monitor, Bell, Globe, Database, User, KeyRound, LogOut, Trash } from "lucide-react";
+import { BarChart3, FileText, ReceiptText, Settings, Sun, Moon, Monitor, Bell, Globe, Database, User, KeyRound, LogOut, Trash, AlertTriangle } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { createClient } from "@/lib/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type TabKey = "overview" | "reports" | "billing" | "preferences" | "account";
 
@@ -20,6 +28,11 @@ export default function ProfilePage() {
   const [newPat, setNewPat] = useState<string | null>(null);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelMode, setCancelMode] = useState<"at_period_end" | "immediate">("at_period_end");
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const locale = useLocale();
   const t = useTranslations("profile");
   type MeResponse = {
@@ -54,6 +67,8 @@ export default function ProfilePage() {
     const second = local.charAt(1) || "-";
     return (first + second).toUpperCase();
   };
+
+
 
   const sidebarItem = (key: TabKey, label: string, icon: React.ReactNode) => (
     <button
@@ -212,6 +227,47 @@ export default function ProfilePage() {
 
   
 
+  // 处理取消订阅
+  const handleCancelSubscription = async () => {
+    setCancelLoading(true);
+    setCancelError(null);
+    setCancelSuccess(null);
+    
+    try {
+      const res = await fetch("/api/subscription/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: cancelMode })
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Unknown error");
+      }
+      
+      // 设置成功消息
+      if (cancelMode === "at_period_end") {
+        setCancelSuccess(t("billing.cancelDialog.successAtPeriodEnd"));
+      } else {
+        setCancelSuccess(t("billing.cancelDialog.success"));
+        // 如果是立即取消，刷新用户信息
+        const meRes = await fetch("/api/auth/me", { credentials: "same-origin" });
+        const meJson = await meRes.json();
+        setMe(meJson as MeResponse);
+      }
+      
+      // 3秒后关闭对话框
+      setTimeout(() => {
+        setShowCancelDialog(false);
+        setCancelSuccess(null);
+      }, 3000);
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : t("billing.cancelDialog.error"));
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   function formatUsd(amount: number, currency: string = "USD") {
     return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
   }
@@ -219,6 +275,62 @@ export default function ProfilePage() {
   return (
     <main>
       <Navigation />
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              {t("billing.cancelDialog.title")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("billing.cancelDialog.description")}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div 
+              className={`p-3 rounded-lg border cursor-pointer ${cancelMode === "at_period_end" ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
+              onClick={() => setCancelMode("at_period_end")}
+            >
+              <div className="font-medium">{t("billing.cancelDialog.atPeriodEnd")}</div>
+              <div className="text-sm text-gray-600">{t("billing.cancelDialog.atPeriodEndDesc")}</div>
+            </div>
+            
+            <div 
+              className={`p-3 rounded-lg border cursor-pointer ${cancelMode === "immediate" ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
+              onClick={() => setCancelMode("immediate")}
+            >
+              <div className="font-medium">{t("billing.cancelDialog.immediate")}</div>
+              <div className="text-sm text-gray-600">{t("billing.cancelDialog.immediateDesc")}</div>
+            </div>
+            
+            {cancelSuccess && (
+              <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-green-800">
+                {cancelSuccess}
+              </div>
+            )}
+            
+            {cancelError && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-800">
+                {cancelError}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCancelDialog(false)} disabled={cancelLoading}>
+              {t("common.cancel")}
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleCancelSubscription}
+              disabled={cancelLoading || !!cancelSuccess}
+            >
+              {cancelLoading ? t("common.processing") : t("billing.cancelDialog.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 pt-24 pb-10">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6">
@@ -383,14 +495,26 @@ export default function ProfilePage() {
                             return t("billing.subscriptionCard.nextCharge", { date: d });
                           })()}</div>
                         </div>
-                        {(me?.entitlements?.plan ?? "").toLowerCase() !== "pro" && (
-                          <Button 
-                            className="bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700" 
-                            onClick={handleManageBilling}
-                          >
-                            {t("billing.subscriptionCard.switchToPro")}
-                          </Button>
-                        )}
+                        <div className="flex flex-col gap-2">
+                          {(me?.entitlements?.plan ?? "").toLowerCase() !== "pro" ? (
+                            <Button 
+                              className="bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700" 
+                              onClick={handleManageBilling}
+                            >
+                              {t("billing.subscriptionCard.switchToPro")}
+                            </Button>
+                          ) : (
+                            <>
+                              <Button 
+                                variant="outline"
+                                onClick={handleManageBilling}
+                              >
+                                {t("billing.subscriptionCard.manageBilling")}
+                              </Button>
+
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -513,7 +637,7 @@ export default function ProfilePage() {
                           <div className="text-lg font-semibold">{t("billing.dangerZone.title")}</div>
                           <div className="text-sm text-gray-600">{t("billing.dangerZone.hint")}</div>
                         </div>
-                        <Button variant="destructive" onClick={handleManageBilling}>{t("billing.dangerZone.unsubscribe")}</Button>
+                        <Button variant="destructive" onClick={() => setShowCancelDialog(true)}>{t("billing.dangerZone.unsubscribe")}</Button>
                       </div>
                     </div>
                   </CardContent>
