@@ -37,6 +37,10 @@ export default function CancelSubscriptionDialog({
   onConfirm,
   t,
 }: CancelSubscriptionDialogProps) {
+  // 确保取消模式始终为 at_period_end
+  if (cancelMode !== "at_period_end") {
+    setCancelMode("at_period_end");
+  }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -51,20 +55,9 @@ export default function CancelSubscriptionDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div
-            className={`p-3 rounded-lg border cursor-pointer ${cancelMode === "at_period_end" ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
-            onClick={() => setCancelMode("at_period_end")}
-          >
+          <div className="p-3 rounded-lg border border-blue-500 bg-blue-50">
             <div className="font-medium">{t("billing.cancelDialog.atPeriodEnd")}</div>
             <div className="text-sm text-gray-600">{t("billing.cancelDialog.atPeriodEndDesc")}</div>
-          </div>
-
-          <div
-            className={`p-3 rounded-lg border cursor-pointer ${cancelMode === "immediate" ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
-            onClick={() => setCancelMode("immediate")}
-          >
-            <div className="font-medium">{t("billing.cancelDialog.immediate")}</div>
-            <div className="text-sm text-gray-600">{t("billing.cancelDialog.immediateDesc")}</div>
           </div>
 
           {cancelSuccess && (

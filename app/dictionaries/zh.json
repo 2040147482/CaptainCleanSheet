@@ -57,23 +57,17 @@
         "current": "当前计划:",
         "nextCharge": "下次扣费: {date}",
         "switchToPro": "升级到Pro",
-        "cancelNow": "立即取消",
         "manageBilling": "管理账单"
       },
       "cancelDialog": {
         "title": "取消订阅",
         "description": "请选择取消方式:",
         "atPeriodEnd": "在当前计费周期结束后取消",
-        "immediate": "立即取消",
         "atPeriodEndTitle": "在计费周期结束后取消",
         "atPeriodEndDesc": "你将可继续使用至当前计费周期结束。",
-        "immediateTitle": "立即取消",
-        "immediateDesc": "将立即停止使用，当前周期剩余时间将被放弃。",
         "confirm": "确认取消",
         "confirmAtPeriodEnd": "确认在计费周期结束后取消",
-        "confirmImmediate": "确认立即取消",
         "cancel": "返回",
-        "warning": "立即取消将失去当前计费周期剩余时间的使用权",
         "success": "订阅已取消",
         "successAtPeriodEnd": "订阅将在当前计费周期结束后取消",
         "error": "取消订阅失败，请稍后再试"
